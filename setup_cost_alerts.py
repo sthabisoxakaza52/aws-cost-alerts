@@ -251,7 +251,7 @@ def main():
         print(f"  • Budget:       {args.budget_name}  (${args.budget}/month)")
         print(f"  • Alerts at:    50% | 80% | 100% actual + 100% forecasted")
         print()
-        sys.exit(0)
+        sys.exit(0)   
 
     session = boto3.Session(profile_name=args.profile)
 
