@@ -217,9 +217,6 @@ def create_budget(session, account_id, budget_name, budget_amount, topic_arn):
     )
     print(f"   Budget created with {len(notifications)} alert thresholds.")
 
-
-# ─── Main ─────────────────────────────────────────────────────────────────────
-
 def parse_args():
     p = argparse.ArgumentParser(
         description="Set up AWS monthly cost alerts (email + Slack)."
