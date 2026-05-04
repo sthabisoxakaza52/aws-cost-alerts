@@ -19,7 +19,7 @@ pip install boto3
 ```
 
 Your AWS credentials must be configured with permissions for:
-- `budgets:CreateBudget`, `budgets:DeleteBudget`
+- `budgets:CreateBudget`,`budgets:DeleteBudget`
 - `sns:CreateTopic`, `sns:Subscribe`
 - `lambda:CreateFunction`, `lambda:UpdateFunctionCode`, `lambda:AddPermission`
 - `iam:CreateRole`, `iam:AttachRolePolicy`, `iam:GetRole`
