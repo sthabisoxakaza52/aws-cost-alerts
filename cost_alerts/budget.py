@@ -1,5 +1,3 @@
-# cost_alerts/budget.py
-
 from botocore.exceptions import ClientError
 from .config import DEFAULT_REGION
 from .notifications import build_notifications

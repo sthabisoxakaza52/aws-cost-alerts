@@ -1,5 +1,3 @@
-# cost_alerts/config 
-
 DEFAULT_REGION = "us-east-1"
 
 DEFAULT_BUDGET_NAME = "MonthlyAWSBudget"

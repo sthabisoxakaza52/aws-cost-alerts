@@ -1,5 +1,3 @@
-# cost_alerts/sns.py
-
 from botocore.exceptions import ClientError
 from .config import DEFAULT_REGION
 

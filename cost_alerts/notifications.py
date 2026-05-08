@@ -1,5 +1,3 @@
-# cost_alerts/notifications.py
-
 from .config import ALERT_THRESHOLDS
 
 
