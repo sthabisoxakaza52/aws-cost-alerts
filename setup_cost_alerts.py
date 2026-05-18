@@ -1,64 +1,193 @@
 #!/usr/bin/env python3
 """
-AWS Cost Alert Setup Script
+AWS Cost Alert Setup
 Sets up AWS Budgets with SNS email + Slack webhook notifications
-at 50%, 80%, 100%, and forecasted 100% thresholds.
+at 50%, 80%, 100%, and forecasted-100% thresholds.
+
+Compatible with Windows (PowerShell / CMD), macOS, and Linux.
 """
 
 import boto3
 import json
 import argparse
 import sys
+import time
+import threading
+import itertools
+import platform
 from botocore.exceptions import ClientError
 
 
-# ─── Configuration ────────────────────────────────────────────────────────────
+IS_WINDOWS = platform.system() == "Windows"
 
-DEFAULT_BUDGET_AMOUNT = "100"       # USD — override via --budget
-DEFAULT_BUDGET_NAME   = "MonthlyAWSBudget"
-DEFAULT_EMAIL         = ""          # override via --email
-DEFAULT_SLACK_WEBHOOK = ""          # override via --slack-webhook
-DEFAULT_REGION        = "us-east-1" # Budgets API only works in us-east-1
+# Enable ANSI escape codes on Windows 10+
+if IS_WINDOWS:
+    import ctypes
+    try:
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+    except Exception:
+        pass
+
+
+class C:
+    RESET  = "\033[0m"
+    BOLD   = "\033[1m"
+    DIM    = "\033[2m"
+    WHITE  = "\033[97m"
+    CYAN   = "\033[96m"
+    GREEN  = "\033[92m"
+    YELLOW = "\033[93m"
+    RED    = "\033[91m"
+    GREY   = "\033[90m"
+
+
+def c(color, text):
+    return f"{color}{text}{C.RESET}"
+
+
+class Spinner:
+    """Context-manager spinner. Shows a success/failure tick on exit."""
+
+    FRAMES     = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+    FRAMES_WIN = ["|", "/", "-", "\\"]  # braille may not render on older Windows terminals
+
+    def __init__(self, label: str, indent: int = 4):
+        self.label   = label
+        self.indent  = indent
+        self._stop   = threading.Event()
+        self._thread = None
+        self.frames  = self.FRAMES_WIN if IS_WINDOWS else self.FRAMES
+
+    def _spin(self):
+        pad = " " * self.indent
+        for frame in itertools.cycle(self.frames):
+            if self._stop.is_set():
+                break
+            sys.stdout.write(f"\r{pad}{c(C.CYAN, frame)}  {self.label} ")
+            sys.stdout.flush()
+            time.sleep(0.08)
+
+    def __enter__(self):
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._spin, daemon=True)
+        self._thread.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._stop.set()
+        self._thread.join()
+        pad  = " " * self.indent
+        icon = c(C.GREEN, "✔") if exc_type is None else c(C.RED, "✘")
+        sys.stdout.write(f"\r{pad}{icon}  {self.label}{' ' * 10}\n")
+        sys.stdout.flush()
+        return False
+
+
+BORDER = "═" * 58
+
+
+def header():
+    print()
+    print(c(C.CYAN, f"  ╔{BORDER}╗"))
+    print(c(C.CYAN, "  ║") + c(C.BOLD + C.WHITE, "  AWS Cost Alert Setup".center(58)) + c(C.CYAN, "║"))
+    print(c(C.CYAN, f"  ╚{BORDER}╝"))
+    print()
+
+
+def section(step: int, total: int, title: str):
+    print(f"\n  {c(C.GREY, f'[{step}/{total}]')}  {c(C.BOLD + C.WHITE, title)}")
+    print(c(C.GREY, "  " + "─" * 54))
+
+
+def info(key: str, value: str, indent: int = 6):
+    print(f"{' ' * indent}{c(C.GREY, key.ljust(18))} {c(C.CYAN, value)}")
+
+
+def note(text: str, indent: int = 6):
+    print(f"{' ' * indent}{c(C.YELLOW, '⚠')}  {c(C.DIM, text)}")
+
+
+def success_banner(budget, budget_name, email, has_slack):
+    w = 58
+    print()
+    print(c(C.GREEN, f"  ╔{'═' * w}╗"))
+    print(c(C.GREEN, "  ║") + c(C.BOLD + C.WHITE, "  Setup Complete".center(w)) + c(C.GREEN, "║"))
+    print(c(C.GREEN, f"  ╠{'═' * w}╣"))
+
+    def row(label, value):
+        pad = w - (2 + 20 + len(value))
+        print(c(C.GREEN, "  ║") + c(C.WHITE, f"  {label:<20}") + c(C.CYAN, value) + " " * max(pad, 1) + c(C.GREEN, "║"))
+
+    row("Budget:",    f"${budget}/month  ({budget_name})")
+    row("Alerts at:", "50%  ·  80%  ·  100% actual  ·  100% forecast")
+    row("Email:",     email)
+    if has_slack:
+        row("Slack:", "via Lambda forwarder  ✔")
+
+    print(c(C.GREEN, f"  ╠{'═' * w}╣"))
+    print(c(C.GREEN, "  ║") + c(C.YELLOW, "  ➜  Confirm the SNS subscription in your inbox!").ljust(w + 9) + c(C.GREEN, "║"))
+    print(c(C.GREEN, f"  ╚{'═' * w}╝"))
+    print()
+
+
+def dry_run_banner(args):
+    w = 58
+    print()
+    print(c(C.YELLOW, f"  ╔{'═' * w}╗"))
+    print(c(C.YELLOW, "  ║") + c(C.BOLD + C.WHITE, "  DRY RUN — No changes will be made".center(w)) + c(C.YELLOW, "║"))
+    print(c(C.YELLOW, f"  ╠{'═' * w}╣"))
+
+    rows = [
+        ("SNS Topic",    "aws-cost-alert-topic"),
+        ("Email sub",    args.email),
+        ("Slack Lambda", "aws-cost-alert-slack-forwarder" if args.slack_webhook else "skipped"),
+        ("IAM Role",     "aws-cost-alert-lambda-role"     if args.slack_webhook else "skipped"),
+        ("Budget",       f"{args.budget_name}  (${args.budget}/month)"),
+        ("Alert levels", "50%  |  80%  |  100% actual  |  100% forecasted"),
+    ]
+    for label, value in rows:
+        pad = w - (2 + 20 + len(value))
+        print(c(C.YELLOW, "  ║") + c(C.WHITE, f"  {label:<20}") + c(C.CYAN, value) + " " * max(pad, 1) + c(C.YELLOW, "║"))
+
+    print(c(C.YELLOW, f"  ╚{'═' * w}╝"))
+    print()
+
+
+DEFAULT_BUDGET_NAME = "MonthlyAWSBudget"
+DEFAULT_REGION      = "us-east-1"
 
 ALERT_THRESHOLDS = [
-    {"percentage": 50,  "type": "PERCENTAGE",          "comparison": "GREATER_THAN"},
-    {"percentage": 80,  "type": "PERCENTAGE",          "comparison": "GREATER_THAN"},
-    {"percentage": 100, "type": "PERCENTAGE",          "comparison": "GREATER_THAN"},
-    {"percentage": 100, "type": "FORECASTED_PERCENTAGE","comparison": "GREATER_THAN"},
+    {"percentage": 50,  "type": "PERCENTAGE",            "comparison": "GREATER_THAN"},
+    {"percentage": 80,  "type": "PERCENTAGE",            "comparison": "GREATER_THAN"},
+    {"percentage": 100, "type": "PERCENTAGE",            "comparison": "GREATER_THAN"},
+    {"percentage": 100, "type": "FORECASTED_PERCENTAGE", "comparison": "GREATER_THAN"},
 ]
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def get_account_id(session):
-    sts = session.client("sts")
-    return sts.get_caller_identity()["Account"]
+    return session.client("sts").get_caller_identity()["Account"]
 
 
 def create_sns_topic(session, topic_name, email):
-    """Create SNS topic and subscribe the email address."""
     sns = session.client("sns", region_name=DEFAULT_REGION)
 
-    print(f"  Creating SNS topic '{topic_name}'...")
-    resp = sns.create_topic(Name=topic_name)
-    topic_arn = resp["TopicArn"]
-    print(f"  Topic ARN: {topic_arn}")
+    with Spinner(f"Creating SNS topic '{topic_name}'"):
+        topic_arn = sns.create_topic(Name=topic_name)["TopicArn"]
+    info("Topic ARN", topic_arn)
 
-    print(f"  Subscribing {email} to topic...")
-    sns.subscribe(TopicArn=topic_arn, Protocol="email", Endpoint=email)
-    print(f"  Subscription pending — check {email} for confirmation email.")
+    with Spinner(f"Subscribing {email}"):
+        sns.subscribe(TopicArn=topic_arn, Protocol="email", Endpoint=email)
+    note(f"Subscription pending — check {email} for a confirmation email.")
 
     return topic_arn
 
 
 def create_slack_lambda(session, slack_webhook_url, topic_arn):
-    """
-    Create a Lambda function that forwards SNS messages to Slack,
-    then subscribe it to the SNS topic.
-    """
-    import zipfile, io, base64
+    import zipfile, io
 
     lambda_code = f'''
-import urllib.request, json, os
+import urllib.request, json
 
 SLACK_WEBHOOK = "{slack_webhook_url}"
 
@@ -73,7 +202,6 @@ def handler(event, context):
     return {{"statusCode": 200}}
 '''
 
-    # Zip the code in memory
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr("lambda_function.py", lambda_code)
@@ -82,198 +210,214 @@ def handler(event, context):
 
     iam = session.client("iam")
     lam = session.client("lambda", region_name=DEFAULT_REGION)
-    sns = session.client("sns", region_name=DEFAULT_REGION)
+    sns = session.client("sns",    region_name=DEFAULT_REGION)
 
     role_name   = "aws-cost-alert-lambda-role"
     lambda_name = "aws-cost-alert-slack-forwarder"
 
-    # Create or reuse IAM role
     try:
-        role = iam.get_role(RoleName=role_name)
-        role_arn = role["Role"]["Arn"]
-        print(f"  Reusing existing IAM role: {role_name}")
+        role_arn = iam.get_role(RoleName=role_name)["Role"]["Arn"]
+        with Spinner(f"Reusing IAM role '{role_name}'"):
+            time.sleep(0.4)
     except iam.exceptions.NoSuchEntityException:
-        print(f"  Creating IAM role '{role_name}'...")
-        trust = {
-            "Version": "2012-10-17",
-            "Statement": [{
-                "Effect": "Allow",
-                "Principal": {"Service": "lambda.amazonaws.com"},
-                "Action": "sts:AssumeRole"
-            }]
-        }
-        role = iam.create_role(
-            RoleName=role_name,
-            AssumeRolePolicyDocument=json.dumps(trust),
-            Description="Role for AWS Cost Alert Slack forwarder Lambda"
-        )
-        iam.attach_role_policy(
-            RoleName=role_name,
-            PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-        )
-        role_arn = role["Role"]["Arn"]
-        print(f"  IAM role created: {role_arn}")
-        import time; time.sleep(10)  # Let IAM propagate
+        with Spinner(f"Creating IAM role '{role_name}'"):
+            trust = {
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Effect": "Allow",
+                    "Principal": {"Service": "lambda.amazonaws.com"},
+                    "Action": "sts:AssumeRole"
+                }]
+            }
+            role = iam.create_role(
+                RoleName=role_name,
+                AssumeRolePolicyDocument=json.dumps(trust),
+                Description="Execution role for the cost-alert Slack forwarder",
+            )
+            iam.attach_role_policy(
+                RoleName=role_name,
+                PolicyArn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+            )
+            role_arn = role["Role"]["Arn"]
+            time.sleep(10)  # wait for IAM to propagate before Lambda creation
 
-    # Create or update Lambda
+    info("IAM Role ARN", role_arn)
+
     try:
-        fn = lam.get_function(FunctionName=lambda_name)
-        print(f"  Updating existing Lambda '{lambda_name}'...")
-        lam.update_function_code(FunctionName=lambda_name, ZipFile=zip_bytes)
+        fn     = lam.get_function(FunctionName=lambda_name)
         fn_arn = fn["Configuration"]["FunctionArn"]
+        with Spinner(f"Updating Lambda '{lambda_name}'"):
+            lam.update_function_code(FunctionName=lambda_name, ZipFile=zip_bytes)
     except lam.exceptions.ResourceNotFoundException:
-        print(f"  Creating Lambda '{lambda_name}'...")
-        fn = lam.create_function(
-            FunctionName=lambda_name,
-            Runtime="python3.12",
-            Role=role_arn,
-            Handler="lambda_function.handler",
-            Code={"ZipFile": zip_bytes},
-            Description="Forwards AWS Budget SNS alerts to Slack",
-            Timeout=15,
-        )
+        with Spinner(f"Creating Lambda '{lambda_name}'"):
+            fn = lam.create_function(
+                FunctionName=lambda_name,
+                Runtime="python3.12",
+                Role=role_arn,
+                Handler="lambda_function.handler",
+                Code={"ZipFile": zip_bytes},
+                Description="Forwards AWS Budget SNS alerts to Slack",
+                Timeout=15,
+            )
         fn_arn = fn["FunctionArn"]
-    print(f"   Lambda ARN: {fn_arn}")
 
-    # Allow SNS to invoke Lambda
-    try:
-        lam.add_permission(
-            FunctionName=lambda_name,
-            StatementId="sns-invoke",
-            Action="lambda:InvokeFunction",
-            Principal="sns.amazonaws.com",
-            SourceArn=topic_arn,
-        )
-    except lam.exceptions.ResourceConflictException:
-        pass  # Permission already exists
+    info("Lambda ARN", fn_arn)
 
-    # Subscribe Lambda to SNS topic
-    print(f"  Subscribing Lambda to SNS topic...")
-    sns.subscribe(TopicArn=topic_arn, Protocol="lambda", Endpoint=fn_arn)
-    print(f"  Slack Lambda subscribed.")
+    with Spinner("Granting SNS invoke permission"):
+        try:
+            lam.add_permission(
+                FunctionName=lambda_name,
+                StatementId="sns-invoke",
+                Action="lambda:InvokeFunction",
+                Principal="sns.amazonaws.com",
+                SourceArn=topic_arn,
+            )
+        except lam.exceptions.ResourceConflictException:
+            pass  # permission already exists
+
+    with Spinner("Subscribing Lambda to SNS topic"):
+        sns.subscribe(TopicArn=topic_arn, Protocol="lambda", Endpoint=fn_arn)
 
     return fn_arn
 
 
 def build_notifications(topic_arn):
-    """Build the notifications + subscribers list for AWS Budgets."""
     notifications = []
     for t in ALERT_THRESHOLDS:
         threshold_type = "FORECASTED" if t["type"] == "FORECASTED_PERCENTAGE" else "ACTUAL"
-        label = "forecasted" if threshold_type == "FORECASTED" else "actual"
         notifications.append({
             "Notification": {
-                "NotificationType":          threshold_type,
-                "ComparisonOperator":        t["comparison"],
-                "Threshold":                 t["percentage"],
-                "ThresholdType":             "PERCENTAGE",
-                "NotificationState":         "ALARM",
+                "NotificationType":   threshold_type,
+                "ComparisonOperator": t["comparison"],
+                "Threshold":          t["percentage"],
+                "ThresholdType":      "PERCENTAGE",
+                "NotificationState":  "ALARM",
             },
-            "Subscribers": [
-                {"SubscriptionType": "SNS", "Address": topic_arn}
-            ]
+            "Subscribers": [{"SubscriptionType": "SNS", "Address": topic_arn}],
         })
     return notifications
 
 
 def create_budget(session, account_id, budget_name, budget_amount, topic_arn):
-    """Create or overwrite the AWS Budget."""
-    budgets = session.client("budgets", region_name=DEFAULT_REGION)
-
-    budget = {
-        "BudgetName":   budget_name,
-        "BudgetType":   "COST",
-        "TimeUnit":     "MONTHLY",
-        "BudgetLimit":  {"Amount": str(budget_amount), "Unit": "USD"},
-        "CostTypes": {
-            "IncludeTax":              True,
-            "IncludeSubscription":     True,
-            "UseBlended":              False,
-            "IncludeRefund":           False,
-            "IncludeCredit":           False,
-            "IncludeUpfront":          True,
-            "IncludeRecurring":        True,
-            "IncludeOtherSubscription":True,
-            "IncludeSupport":          True,
-            "IncludeDiscount":         True,
-            "UseAmortized":            False,
-        }
-    }
-
+    budgets       = session.client("budgets", region_name=DEFAULT_REGION)
     notifications = build_notifications(topic_arn)
 
-    # Delete existing budget if present (can't update+notifications in one call)
-    try:
-        budgets.delete_budget(AccountId=account_id, BudgetName=budget_name)
-        print(f"   Deleted existing budget '{budget_name}' to recreate it.")
-    except budgets.exceptions.NotFoundException:
-        pass
+    budget = {
+        "BudgetName":  budget_name,
+        "BudgetType":  "COST",
+        "TimeUnit":    "MONTHLY",
+        "BudgetLimit": {"Amount": str(budget_amount), "Unit": "USD"},
+        "CostTypes": {
+            "IncludeTax":               True,
+            "IncludeSubscription":      True,
+            "UseBlended":               False,
+            "IncludeRefund":            False,
+            "IncludeCredit":            False,
+            "IncludeUpfront":           True,
+            "IncludeRecurring":         True,
+            "IncludeOtherSubscription": True,
+            "IncludeSupport":           True,
+            "IncludeDiscount":          True,
+            "UseAmortized":             False,
+        },
+    }
 
-    print(f"   Creating budget '{budget_name}' (${budget_amount}/month)...")
-    budgets.create_budget(
-        AccountId=account_id,
-        Budget=budget,
-        NotificationsWithSubscribers=notifications,
-    )
-    print(f"   Budget created with {len(notifications)} alert thresholds.")
+    with Spinner(f"Checking for existing budget '{budget_name}'"):
+        try:
+            budgets.delete_budget(AccountId=account_id, BudgetName=budget_name)
+        except budgets.exceptions.NotFoundException:
+            pass  # nothing to delete
+
+    with Spinner(f"Creating budget '{budget_name}' (${budget_amount}/month)"):
+        budgets.create_budget(
+            AccountId=account_id,
+            Budget=budget,
+            NotificationsWithSubscribers=notifications,
+        )
+
+    info("Thresholds", f"{len(notifications)} alert levels configured")
+
 
 def parse_args():
     p = argparse.ArgumentParser(
-        description="Set up AWS monthly cost alerts (email + Slack)."
+        description="Set up AWS monthly cost alerts (email + optional Slack).",
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog="""
+Examples
+--------
+  Windows PowerShell:
+    python setup_cost_alerts.py `
+      --budget 150 `
+      --email alerts@mycompany.com `
+      --slack-webhook https://hooks.slack.com/services/T00/B00/xxx
+
+  Windows CMD:
+    python setup_cost_alerts.py ^
+      --budget 150 ^
+      --email alerts@mycompany.com ^
+      --slack-webhook https://hooks.slack.com/services/T00/B00/xxx
+
+  macOS / Linux / Git Bash:
+    python3 setup_cost_alerts.py \\
+      --budget 150 \\
+      --email alerts@mycompany.com \\
+      --slack-webhook https://hooks.slack.com/services/T00/B00/xxx
+
+  Dry run (preview only):
+    python setup_cost_alerts.py --budget 150 --email you@example.com --dry-run
+"""
     )
-    p.add_argument("--budget",        required=True,
-                   help="Monthly budget limit in USD (e.g. 200)")
-    p.add_argument("--email",         required=True,
-                   help="Email address for SNS alert subscription")
-    p.add_argument("--slack-webhook", required=True,
-                   help="Slack incoming webhook URL")
+    p.add_argument("--budget",        required=True,  help="Monthly budget limit in USD (e.g. 200)")
+    p.add_argument("--email",         required=True,  help="Email address for SNS alert subscription")
+    p.add_argument("--slack-webhook", default=None,   help="Slack incoming webhook URL (optional)")
     p.add_argument("--budget-name",   default=DEFAULT_BUDGET_NAME,
                    help=f"Name for the AWS Budget (default: {DEFAULT_BUDGET_NAME})")
-    p.add_argument("--profile",       default=None,
-                   help="AWS CLI profile to use (default: default)")
+    p.add_argument("--profile",       default=None,   help="AWS CLI profile to use (default: default)")
     p.add_argument("--dry-run",       action="store_true",
-                   help="Print what would be created without making changes")
+                   help="Preview resources that would be created, without making changes")
     return p.parse_args()
 
 
 def main():
-    args = parse_args()
+    args    = parse_args()
+    session = boto3.Session(profile_name=args.profile)
+    header()
 
     if args.dry_run:
-        print("\n[DRY RUN] The following resources would be created:")
-        print(f"  • SNS Topic:    aws-cost-alert-topic  (region: {DEFAULT_REGION})")
-        print(f"  • Email sub:    {args.email}")
-        print(f"  • Slack Lambda: aws-cost-alert-slack-forwarder")
-        print(f"  • IAM Role:     aws-cost-alert-lambda-role")
-        print(f"  • Budget:       {args.budget_name}  (${args.budget}/month)")
-        print(f"  • Alerts at:    50% | 80% | 100% actual + 100% forecasted")
-        print()
-        sys.exit(0)   
+        dry_run_banner(args)
+        sys.exit(0)
 
-    session = boto3.Session(profile_name=args.profile)
+    total_steps = 4 if args.slack_webhook else 3
 
-    print("\n─── AWS Cost Alert Setup ───────────────────────────────")
+    section(1, total_steps, "Resolving AWS account identity")
+    with Spinner("Fetching account ID"):
+        account_id = get_account_id(session)
+    info("Account ID", account_id)
 
-    print("\n[1/4] Resolving AWS account ID...")
-    account_id = get_account_id(session)
-    print(f"   Account ID: {account_id}")
-
-    print("\n[2/4] Setting up SNS topic + email subscription...")
+    section(2, total_steps, "Setting up SNS topic & email subscription")
     topic_arn = create_sns_topic(session, "aws-cost-alert-topic", args.email)
 
-    print("\n[3/4] Deploying Slack forwarder Lambda...")
-    create_slack_lambda(session, args.slack_webhook, topic_arn)
+    if args.slack_webhook:
+        section(3, total_steps, "Deploying Slack forwarder Lambda")
+        create_slack_lambda(session, args.slack_webhook, topic_arn)
 
-    print("\n[4/4] Creating AWS Budget with alert thresholds...")
+    section(total_steps, total_steps, "Creating AWS Budget with alert thresholds")
     create_budget(session, account_id, args.budget_name, args.budget, topic_arn)
 
-    print("\nDone! Summary:")
-    print(f"   Budget:    ${args.budget}/month  ({args.budget_name})")
-    print(f"   Alerts:    50% · 80% · 100% actual · 100% forecasted")
-    print(f"   Email:     {args.email}  ← confirm the SNS subscription email!")
-    print(f"   Slack:     via Lambda forwarder")
-    print()
+    success_banner(args.budget, args.budget_name, args.email, bool(args.slack_webhook))
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print(f"\n\n  {c(C.YELLOW, '⚠')}  Setup interrupted.\n")
+        sys.exit(1)
+    except ClientError as e:
+        code = e.response["Error"]["Code"]
+        msg  = e.response["Error"]["Message"]
+        print(f"\n  {c(C.RED, '✘')}  AWS Error [{c(C.YELLOW, code)}]: {msg}\n")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n  {c(C.RED, '✘')}  Unexpected error: {e}\n")
+        sys.exit(1)
