@@ -212,3 +212,6 @@ To remove all created resources:
 2. **SNS Topic** — AWS Console → SNS → Topics → Delete `aws-cost-alert-topic`
 3. **Lambda** — AWS Console → Lambda → Delete `aws-cost-alert-slack-forwarder`
 4. **IAM Role** — AWS Console → IAM → Roles → Delete `aws-cost-alert-lambda-role`
+
+   WTC-JJNPY2UD
+   
