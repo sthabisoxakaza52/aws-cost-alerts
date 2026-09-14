@@ -363,6 +363,7 @@ def test_readme_preserves_cleanup_instructions():
         encoding="utf-8"
     )
 
+    assert "WTC-JJNPY2UD" in readme
     cleanup_section = readme.split("## Uninstall / Cleanup", 1)
     assert len(cleanup_section) == 2
     assert readme.rstrip().endswith("Delete `aws-cost-alert-lambda-role`")

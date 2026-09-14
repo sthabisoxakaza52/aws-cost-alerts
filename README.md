@@ -2,6 +2,8 @@
 
 A Python/Boto3 script that provisions AWS Budget alerts with **email (SNS)** and **optional Slack** notifications at 50%, 80%, 100%, and forecasted-100% spend thresholds — with a polished terminal UI and live progress spinners.
 
+**Project code:** `WTC-JJNPY2UD`
+
 ---
 
 ## What it creates
@@ -212,6 +214,3 @@ To remove all created resources:
 2. **SNS Topic** — AWS Console → SNS → Topics → Delete `aws-cost-alert-topic`
 3. **Lambda** — AWS Console → Lambda → Delete `aws-cost-alert-slack-forwarder`
 4. **IAM Role** — AWS Console → IAM → Roles → Delete `aws-cost-alert-lambda-role`
-
-   WTC-JJNPY2UD
-   
