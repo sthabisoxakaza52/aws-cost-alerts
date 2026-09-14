@@ -3,7 +3,7 @@ import sys
 
 from botocore.exceptions import ClientError
 
-from .aws_client import get_session, get_sts_client
+from .aws_clients import get_session, get_sts_client
 from .sns import create_sns_topic
 from .budget import create_budget
 from .lambda_fn import create_slack_lambda

@@ -3,7 +3,7 @@ import zipfile
 import io
 import time
 
-from .aws_client import (
+from .aws_clients import (
     get_lambda_client,
     get_iam_client,
     get_sns_client

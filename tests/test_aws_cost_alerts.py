@@ -171,15 +171,29 @@ class TestCreateSlackLambda:
         iam = MagicMock()
         lam = MagicMock()
         sns = MagicMock()
+
+        class NoSuchEntityException(Exception):
+            pass
+
+        class ResourceNotFoundException(Exception):
+            pass
+
+        class ResourceConflictException(Exception):
+            pass
+
+        iam.exceptions.NoSuchEntityException = NoSuchEntityException
+        lam.exceptions.ResourceNotFoundException = ResourceNotFoundException
+        lam.exceptions.ResourceConflictException = ResourceConflictException
+
         if role_exists:
             iam.get_role.return_value = {"Role": {"Arn": self.ROLE_ARN}}
         else:
-            iam.get_role.side_effect = iam.exceptions.NoSuchEntityException()
+            iam.get_role.side_effect = NoSuchEntityException()
             iam.create_role.return_value = {"Role": {"Arn": self.ROLE_ARN}}
         if lambda_exists:
             lam.get_function.return_value = {"Configuration": {"FunctionArn": self.LAMBDA_ARN}}
         else:
-            lam.get_function.side_effect = lam.exceptions.ResourceNotFoundException()
+            lam.get_function.side_effect = ResourceNotFoundException()
             lam.create_function.return_value = {"FunctionArn": self.LAMBDA_ARN}
         return iam, lam, sns
 
