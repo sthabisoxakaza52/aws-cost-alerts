@@ -5,6 +5,7 @@ All AWS calls are mocked — no real credentials needed.
 """
 
 import sys
+from pathlib import Path
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -355,3 +356,17 @@ class TestCli:
             with pytest.raises(SystemExit) as exc:
                 main()
         assert exc.value.code != 0
+
+
+def test_readme_preserves_cleanup_instructions():
+    readme = (Path(__file__).parent.parent / "README.md").read_text(
+        encoding="utf-8"
+    )
+
+    cleanup_section = readme.split("## Uninstall / Cleanup", 1)
+    assert len(cleanup_section) == 2
+    assert readme.rstrip().endswith("Delete `aws-cost-alert-lambda-role`")
+    assert "Delete `MonthlyAWSBudget`" in cleanup_section[1]
+    assert "Delete `aws-cost-alert-topic`" in cleanup_section[1]
+    assert "Delete `aws-cost-alert-slack-forwarder`" in cleanup_section[1]
+    assert "Delete `aws-cost-alert-lambda-role`" in cleanup_section[1]
