@@ -262,6 +262,11 @@ class TestCli:
         "--email", "test@example.com",
         "--slack-webhook", "https://hooks.slack.com/test",
     ]
+    EMAIL_ONLY_ARGV = [
+        "aws-cost-alerts",
+        "--budget", "150",
+        "--email", "test@example.com",
+    ]
 
     def _dry_run(self, monkeypatch, capsys, extra_argv=None):
         from cost_alerts.cli import main
@@ -287,6 +292,36 @@ class TestCli:
 
     def test_dry_run_shows_email(self, monkeypatch, capsys):
         assert "test@example.com" in self._dry_run(monkeypatch, capsys)
+
+    def test_email_only_dry_run_omits_slack_resources(self, monkeypatch, capsys):
+        from cost_alerts.cli import main
+        monkeypatch.setattr(sys, "argv", self.EMAIL_ONLY_ARGV + ["--dry-run"])
+
+        with pytest.raises(SystemExit) as exc:
+            main()
+
+        assert exc.value.code == 0
+        output = capsys.readouterr().out
+        assert "Slack Lambda" not in output
+        assert "IAM Role" not in output
+
+    def test_email_only_provisioning_skips_lambda(self, monkeypatch):
+        from cost_alerts.cli import main
+
+        monkeypatch.setattr(sys, "argv", self.EMAIL_ONLY_ARGV)
+        session = MagicMock()
+
+        with (
+            patch("cost_alerts.cli.get_session", return_value=session),
+            patch("cost_alerts.cli.get_account_id", return_value="123"),
+            patch("cost_alerts.cli.create_sns_topic", return_value="arn:test"),
+            patch("cost_alerts.cli.create_budget") as create_budget,
+            patch("cost_alerts.cli.create_slack_lambda") as create_slack_lambda,
+        ):
+            main()
+
+        create_budget.assert_called_once()
+        create_slack_lambda.assert_not_called()
 
     def test_invalid_budget_zero_exits_nonzero(self, monkeypatch):
         from cost_alerts.cli import main

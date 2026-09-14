@@ -15,7 +15,7 @@ def parse_args():
         prog="aws-cost-alerts",
         description=(
             "Provision AWS Budget alerts with "
-            "Email and Slack notifications."
+            "email and optional Slack notifications."
         )
     )
 
@@ -34,8 +34,8 @@ def parse_args():
 
     parser.add_argument(
         "--slack-webhook",
-        required=True,
-        help="Slack incoming webhook URL"
+        default=None,
+        help="Slack incoming webhook URL (optional)"
     )
 
     parser.add_argument(
@@ -84,8 +84,9 @@ def print_dry_run(args):
     print("\nResources to be created:")
     print(" - SNS Topic")
     print(" - Email Subscription")
-    print(" - Slack Lambda")
-    print(" - IAM Role")
+    if args.slack_webhook:
+        print(" - Slack Lambda")
+        print(" - IAM Role")
     print(" - AWS Budget")
 
     print("\nAlert Thresholds:")
@@ -122,14 +123,17 @@ def main():
             email=args.email
         )
 
-        print("\n[3/4] Deploying Slack Lambda...")
-        create_slack_lambda(
-            session=session,
-            slack_webhook_url=args.slack_webhook,
-            topic_arn=topic_arn
-        )
+        total_steps = 4 if args.slack_webhook else 3
 
-        print("\n[4/4] Creating AWS Budget...")
+        if args.slack_webhook:
+            print(f"\n[3/{total_steps}] Deploying Slack Lambda...")
+            create_slack_lambda(
+                session=session,
+                slack_webhook_url=args.slack_webhook,
+                topic_arn=topic_arn
+            )
+
+        print(f"\n[{total_steps}/{total_steps}] Creating AWS Budget...")
         create_budget(
             session=session,
             account_id=account_id,
@@ -143,7 +147,8 @@ def main():
         print("\nNext Steps:")
         print("1. Confirm the SNS email subscription.")
         print("2. Test the SNS topic.")
-        print("3. Verify Slack notifications.")
+        if args.slack_webhook:
+            print("3. Verify Slack notifications.")
 
     except ValueError as error:
         print(f"\nValidation Error: {error}")
