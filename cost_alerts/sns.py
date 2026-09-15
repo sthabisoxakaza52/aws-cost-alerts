@@ -1,9 +1,8 @@
 from botocore.exceptions import ClientError
-from .config import DEFAULT_REGION
 
 
 def create_sns_topic(session, topic_name, email):
-    sns = session.client("sns", region_name=DEFAULT_REGION)
+    sns = session.client("sns")
 
     try:
         print(f"Creating SNS topic '{topic_name}'...")

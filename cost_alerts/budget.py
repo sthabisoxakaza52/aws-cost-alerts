@@ -1,10 +1,9 @@
 from botocore.exceptions import ClientError
-from .config import DEFAULT_REGION
 from .notifications import build_notifications
 
 
 def create_budget(session, account_id, budget_name, budget_amount, topic_arn):
-    budgets = session.client("budgets", region_name=DEFAULT_REGION)
+    budgets = session.client("budgets")
 
     budget = {
         "BudgetName": budget_name,

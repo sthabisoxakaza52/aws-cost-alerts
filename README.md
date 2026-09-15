@@ -80,6 +80,7 @@ Use a **backtick (`` ` ``)** for line continuation:
 python setup_cost_alerts.py `
   --budget 150 `
   --email alerts@mycompany.com `
+  --region us-east-1 `
   --slack-webhook https://hooks.slack.com/services/T00/B00/xxx
 ```
 
@@ -97,6 +98,7 @@ Use a **caret (`^`)** for line continuation:
 python setup_cost_alerts.py ^
   --budget 150 ^
   --email alerts@mycompany.com ^
+  --region us-east-1 ^
   --slack-webhook https://hooks.slack.com/services/T00/B00/xxx
 ```
 
@@ -108,6 +110,7 @@ Use a **backslash (`\`)** for line continuation:
 python3 setup_cost_alerts.py \
   --budget 150 \
   --email alerts@mycompany.com \
+  --region us-east-1 \
   --slack-webhook https://hooks.slack.com/services/T00/B00/xxx
 ```
 
@@ -122,6 +125,7 @@ python3 setup_cost_alerts.py \
 | `--slack-webhook` | ❌ | Slack incoming webhook URL — omit to skip Slack setup |
 | `--budget-name` | ❌ | Custom name for the budget (default: `MonthlyAWSBudget`) |
 | `--profile` | ❌ | AWS CLI named profile to use |
+| `--region` | ❌ | AWS region (default: `us-east-1`) |
 | `--dry-run` | ❌ | Preview what would be created without making any changes |
 
 ---

@@ -1,5 +1,7 @@
 import argparse
+import math
 import sys
+from urllib.parse import urlparse
 
 from botocore.exceptions import ClientError
 
@@ -7,7 +9,7 @@ from .aws_clients import get_session, get_sts_client
 from .sns import create_sns_topic
 from .budget import create_budget
 from .lambda_fn import create_slack_lambda
-from .config import DEFAULT_BUDGET_NAME
+from .config import DEFAULT_BUDGET_NAME, DEFAULT_REGION, SUPPORTED_REGIONS
 
 
 def parse_args():
@@ -51,6 +53,12 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--region",
+        default=DEFAULT_REGION,
+        help=f"AWS region to use (default: {DEFAULT_REGION})"
+    )
+
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Preview resources without creating them"
@@ -65,8 +73,32 @@ def get_account_id(session):
 
 
 def validate_budget(amount):
-    if amount <= 0:
+    if not math.isfinite(amount) or amount <= 0:
         raise ValueError("Budget must be greater than 0")
+
+
+def validate_region(region):
+    if region not in SUPPORTED_REGIONS:
+        supported = ", ".join(SUPPORTED_REGIONS)
+        raise ValueError(f"Unsupported region '{region}'. Use one of: {supported}")
+
+
+def validate_email(email):
+    if "@" not in email or email.startswith("@") or email.endswith("@"):
+        raise ValueError("Email must be a valid email address")
+
+
+def validate_budget_name(name):
+    if not name.strip():
+        raise ValueError("Budget name cannot be empty")
+
+
+def validate_slack_webhook(webhook):
+    if webhook is None:
+        return
+    parsed = urlparse(webhook)
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise ValueError("Slack webhook must be a valid HTTPS URL")
 
 
 def print_dry_run(args):
@@ -80,6 +112,7 @@ def print_dry_run(args):
     print(f"Budget Name   : {args.budget_name}")
     print(f"Alert Email   : {args.email}")
     print(f"AWS Profile   : {args.profile or 'default'}")
+    print(f"AWS Region    : {args.region}")
 
     print("\nResources to be created:")
     print(" - SNS Topic")
@@ -101,6 +134,10 @@ def main():
 
     try:
         validate_budget(args.budget)
+        validate_region(args.region)
+        validate_email(args.email)
+        validate_budget_name(args.budget_name)
+        validate_slack_webhook(args.slack_webhook)
 
         if args.dry_run:
             print_dry_run(args)
@@ -109,7 +146,7 @@ def main():
         print("\nAWS Cost Alerts Setup")
         print("=" * 40)
 
-        session = get_session(args.profile)
+        session = get_session(args.profile, args.region)
 
         print("\n[1/4] Connecting to AWS...")
         account_id = get_account_id(session)

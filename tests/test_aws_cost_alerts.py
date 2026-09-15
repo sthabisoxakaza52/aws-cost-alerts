@@ -294,6 +294,14 @@ class TestCli:
     def test_dry_run_shows_email(self, monkeypatch, capsys):
         assert "test@example.com" in self._dry_run(monkeypatch, capsys)
 
+    def test_dry_run_shows_selected_region(self, monkeypatch, capsys):
+        output = self._dry_run(
+            monkeypatch,
+            capsys,
+            ["--region", "us-west-2"],
+        )
+        assert "AWS Region    : us-west-2" in output
+
     def test_email_only_dry_run_omits_slack_resources(self, monkeypatch, capsys):
         from cost_alerts.cli import main
         monkeypatch.setattr(sys, "argv", self.EMAIL_ONLY_ARGV + ["--dry-run"])
@@ -334,6 +342,27 @@ class TestCli:
     def test_invalid_budget_negative_exits_nonzero(self, monkeypatch):
         from cost_alerts.cli import main
         monkeypatch.setattr(sys, "argv", ["aws-cost-alerts", "--budget", "-50", "--email", "x@y.com", "--slack-webhook", "https://hooks.slack.com/x"])
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code != 0
+
+    @pytest.mark.parametrize(
+        "extra_args",
+        [
+            ["--region", "eu-west-1"],
+            ["--email", "invalid-email"],
+            ["--budget-name", "   "],
+            ["--slack-webhook", "http://hooks.slack.com/test"],
+        ],
+    )
+    def test_invalid_configuration_exits_nonzero(self, monkeypatch, extra_args):
+        from cost_alerts.cli import main
+
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            self.BASE_ARGV + ["--dry-run"] + extra_args,
+        )
         with pytest.raises(SystemExit) as exc:
             main()
         assert exc.value.code != 0
