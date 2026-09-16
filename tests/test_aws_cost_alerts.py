@@ -263,10 +263,10 @@ class TestCreateSlackLambda:
         with patch("time.sleep"):
             create_slack_lambda(session, "https://hooks.slack.com/x", self.TOPIC_ARN)
 
-    def test_lambda_code_contains_webhook_url(self):
+    def test_lambda_code_does_not_embed_webhook_url(self):
         from cost_alerts.lambda_fn import build_lambda_code
         code = build_lambda_code("https://hooks.slack.com/my-webhook")
-        assert "https://hooks.slack.com/my-webhook" in code
+        assert "https://hooks.slack.com/my-webhook" not in code
         assert "os.environ.get(\"SLACK_WEBHOOK\")" in code
 
     def test_lambda_code_has_handler(self):

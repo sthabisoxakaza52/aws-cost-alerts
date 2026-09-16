@@ -13,17 +13,14 @@ from .config import DEFAULT_REGION
 
 
 def build_lambda_code(slack_webhook_url):
-    default_url = slack_webhook_url or "https://hooks.slack.com/default"
-    return f'''
+    return '''
 import json
 import os
 import urllib.request
 
-SLACK_WEBHOOK = os.environ.get("SLACK_WEBHOOK", "{default_url}")
-
 
 def handler(event, context):
-    webhook_url = os.environ.get("SLACK_WEBHOOK") or SLACK_WEBHOOK
+    webhook_url = os.environ.get("SLACK_WEBHOOK")
     if not webhook_url:
         raise ValueError("SLACK_WEBHOOK environment variable is not set")
 
@@ -31,19 +28,19 @@ def handler(event, context):
         message = record["Sns"]["Message"]
         subject = record["Sns"].get("Subject", "AWS Budget Alert")
 
-        payload = json.dumps({{
-            "text": f":warning: *{{subject}}*\\n{{message}}"
-        }}).encode("utf-8")
+        payload = json.dumps({
+            "text": f":warning: *{subject}\\n{message}"
+        }).encode("utf-8")
 
         req = urllib.request.Request(
             webhook_url,
             data=payload,
-            headers={{"Content-Type": "application/json"}}
+            headers={"Content-Type": "application/json"}
         )
 
         urllib.request.urlopen(req)
 
-    return {{"statusCode": 200}}
+    return {"statusCode": 200}
 '''
 
 
