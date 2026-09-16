@@ -144,10 +144,26 @@ class TestCreateBudget:
         session = MagicMock()
         session.client.return_value = budgets
         create_budget(session, "123", "TestBudget", "100", "arn:test")
-        budgets.delete_budget.assert_called_once()
+        budgets.delete_budget.assert_not_called()
 
     def test_missing_budget_delete_is_ignored(self):
         self._run(budget_exists=False).create_budget.assert_called_once()
+
+    def test_existing_budget_updates_in_place_without_delete(self):
+        from botocore.exceptions import ClientError
+        from cost_alerts.budget import create_budget
+        budgets = MagicMock()
+        budgets.create_budget.side_effect = ClientError(
+            {"Error": {"Code": "DuplicateRecordException", "Message": "duplicate"}},
+            "CreateBudget"
+        )
+        session = MagicMock()
+        session.client.return_value = budgets
+
+        create_budget(session, "123", "TestBudget", "100", "arn:test")
+
+        budgets.update_budget.assert_called_once()
+        budgets.delete_budget.assert_not_called()
 
     def test_propagates_client_error_on_create(self):
         from botocore.exceptions import ClientError
@@ -249,7 +265,9 @@ class TestCreateSlackLambda:
 
     def test_lambda_code_contains_webhook_url(self):
         from cost_alerts.lambda_fn import build_lambda_code
-        assert "https://hooks.slack.com/my-webhook" in build_lambda_code("https://hooks.slack.com/my-webhook")
+        code = build_lambda_code("https://hooks.slack.com/my-webhook")
+        assert "https://hooks.slack.com/my-webhook" in code
+        assert "os.environ.get(\"SLACK_WEBHOOK\")" in code
 
     def test_lambda_code_has_handler(self):
         from cost_alerts.lambda_fn import build_lambda_code

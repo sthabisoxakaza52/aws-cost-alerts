@@ -13,24 +13,31 @@ from .config import DEFAULT_REGION
 
 
 def build_lambda_code(slack_webhook_url):
+    default_url = slack_webhook_url or "https://hooks.slack.com/default"
     return f'''
-import urllib.request
 import json
+import os
+import urllib.request
 
-SLACK_WEBHOOK = "{slack_webhook_url}"
+SLACK_WEBHOOK = os.environ.get("SLACK_WEBHOOK", "{default_url}")
+
 
 def handler(event, context):
+    webhook_url = os.environ.get("SLACK_WEBHOOK") or SLACK_WEBHOOK
+    if not webhook_url:
+        raise ValueError("SLACK_WEBHOOK environment variable is not set")
+
     for record in event.get("Records", []):
         message = record["Sns"]["Message"]
         subject = record["Sns"].get("Subject", "AWS Budget Alert")
 
         payload = json.dumps({{
             "text": f":warning: *{{subject}}*\\n{{message}}"
-        }})
+        }}).encode("utf-8")
 
         req = urllib.request.Request(
-            SLACK_WEBHOOK,
-            data=payload.encode(),
+            webhook_url,
+            data=payload,
             headers={{"Content-Type": "application/json"}}
         )
 
@@ -38,6 +45,7 @@ def handler(event, context):
 
     return {{"statusCode": 200}}
 '''
+
 
 
 def create_slack_lambda(session, slack_webhook_url, topic_arn):
@@ -112,6 +120,14 @@ def create_slack_lambda(session, slack_webhook_url, topic_arn):
             FunctionName=lambda_name,
             ZipFile=buffer.read()
         )
+        lambda_client.update_function_configuration(
+            FunctionName=lambda_name,
+            Environment={
+                "Variables": {
+                    "SLACK_WEBHOOK": slack_webhook_url,
+                }
+            }
+        )
 
         lambda_arn = existing["Configuration"]["FunctionArn"]
 
@@ -126,7 +142,12 @@ def create_slack_lambda(session, slack_webhook_url, topic_arn):
             Handler="lambda_function.handler",
             Code={"ZipFile": buffer.read()},
             Timeout=15,
-            Description="SNS to Slack AWS budget alerts"
+            Description="SNS to Slack AWS budget alerts",
+            Environment={
+                "Variables": {
+                    "SLACK_WEBHOOK": slack_webhook_url,
+                }
+            }
         )
 
         lambda_arn = response["FunctionArn"]
