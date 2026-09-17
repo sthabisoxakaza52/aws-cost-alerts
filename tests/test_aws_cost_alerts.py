@@ -205,7 +205,10 @@ class TestCreateSlackLambda:
         if role_exists:
             iam.get_role.return_value = {"Role": {"Arn": self.ROLE_ARN}}
         else:
-            iam.get_role.side_effect = NoSuchEntityException()
+            iam.get_role.side_effect = [
+                NoSuchEntityException(),
+                {"Role": {"Arn": self.ROLE_ARN}},
+            ]
             iam.create_role.return_value = {"Role": {"Arn": self.ROLE_ARN}}
         if lambda_exists:
             lam.get_function.return_value = {"Configuration": {"FunctionArn": self.LAMBDA_ARN}}
@@ -253,6 +256,21 @@ class TestCreateSlackLambda:
     def test_add_permission_called(self):
         _, _, lam, _ = self._run()
         lam.add_permission.assert_called_once()
+
+    def test_wait_for_iam_role_retries_until_ready(self):
+        from cost_alerts.lambda_fn import wait_for_iam_role
+        iam = MagicMock()
+        iam.get_role.side_effect = [
+            Exception("not ready yet"),
+            {"Role": {"Arn": self.ROLE_ARN}},
+        ]
+
+        with patch("time.sleep") as mock_sleep:
+            role = wait_for_iam_role(iam, "aws-cost-alert-lambda-role")
+
+        assert role["Role"]["Arn"] == self.ROLE_ARN
+        assert iam.get_role.call_count == 2
+        assert mock_sleep.called
 
     def test_permission_conflict_is_ignored(self):
         from cost_alerts.lambda_fn import create_slack_lambda

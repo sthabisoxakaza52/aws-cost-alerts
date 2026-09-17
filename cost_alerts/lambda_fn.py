@@ -44,6 +44,17 @@ def handler(event, context):
 '''
 
 
+def wait_for_iam_role(iam_client, role_name, attempts=10, delay_seconds=2):
+    for attempt in range(1, attempts + 1):
+        try:
+            role = iam_client.get_role(RoleName=role_name)
+            return role
+        except Exception:
+            if attempt == attempts:
+                raise
+            time.sleep(delay_seconds)
+
+
 
 def create_slack_lambda(session, slack_webhook_url, topic_arn):
 
@@ -100,10 +111,8 @@ def create_slack_lambda(session, slack_webhook_url, topic_arn):
             )
         )
 
+        role = wait_for_iam_role(iam_client, role_name, attempts=10, delay_seconds=2)
         role_arn = role["Role"]["Arn"]
-
-        # wait for IAM propagation
-        time.sleep(10)
 
     # Create or update Lambda
     try:
