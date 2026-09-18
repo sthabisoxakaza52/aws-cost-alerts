@@ -18,6 +18,19 @@ A Python/Boto3 script that provisions AWS Budget alerts with **email (SNS)** and
 
 ---
 
+## Cloud architecture overview
+
+This project demonstrates a lightweight AWS monitoring workflow built around budget automation and event-driven notifications:
+
+- **AWS Budgets** tracks monthly spend thresholds and raises alarms when usage crosses configured limits.
+- **Amazon SNS** receives the budget events and distributes them to an email subscription.
+- **AWS Lambda** forwards SNS messages to Slack through an incoming webhook for real-time team alerts.
+- **IAM** provides the minimal permissions required for the Lambda execution role and AWS resource provisioning.
+
+This pattern is useful for cloud cost governance because it combines alerting, automation, and operational visibility in a simple, low-cost setup.
+
+---
+
 ## Prerequisites
 
 ### 1 — Python 3.8+
@@ -62,9 +75,9 @@ set AWS_DEFAULT_REGION=us-east-1
 ```
 
 The IAM user/role needs these permissions:
-- `budgets:CreateBudget`, `budgets:DeleteBudget`
+- `budgets:CreateBudget`, `budgets:UpdateBudget`
 - `sns:CreateTopic`, `sns:Subscribe`
-- `lambda:CreateFunction`, `lambda:UpdateFunctionCode`, `lambda:AddPermission`, `lambda:GetFunction`
+- `lambda:CreateFunction`, `lambda:GetFunction`, `lambda:UpdateFunctionCode`, `lambda:UpdateFunctionConfiguration`, `lambda:AddPermission`
 - `iam:CreateRole`, `iam:AttachRolePolicy`, `iam:GetRole`
 - `sts:GetCallerIdentity`
 

@@ -324,6 +324,10 @@ class TestCli:
         out = self._dry_run(monkeypatch, capsys)
         assert "Dry Run" in out or "DRY RUN" in out
 
+    def test_dry_run_confirms_no_aws_changes(self, monkeypatch, capsys):
+        output = self._dry_run(monkeypatch, capsys)
+        assert "No AWS resources will be modified" in output
+
     def test_dry_run_shows_budget_amount(self, monkeypatch, capsys):
         assert "150" in self._dry_run(monkeypatch, capsys)
 

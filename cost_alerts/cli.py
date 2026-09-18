@@ -107,6 +107,7 @@ def print_dry_run(args):
 
     print("\nDry Run Mode")
     print("-" * 40)
+    print("No AWS resources will be modified.")
 
     print(f"Budget Amount : ${args.budget}")
     print(f"Budget Name   : {args.budget_name}")
