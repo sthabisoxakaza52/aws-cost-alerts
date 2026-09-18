@@ -31,6 +31,25 @@ This pattern is useful for cloud cost governance because it combines alerting, a
 
 ---
 
+## How the cloud workflow works
+
+1. The CLI validates the budget, email, region, and optional Slack webhook before making AWS calls.
+2. AWS Budgets evaluates monthly spend against the configured actual and forecasted thresholds.
+3. When a threshold is crossed, AWS Budgets publishes an alert to the SNS topic.
+4. SNS sends the alert to the confirmed email subscription and, when enabled, invokes the Lambda forwarder.
+5. Lambda reads the webhook from its environment configuration and posts the notification to Slack.
+
+The setup is designed to be repeatable: an existing budget is updated instead of being deleted and recreated, and the `--dry-run` option provides a safe preview before provisioning resources.
+
+### Production considerations
+
+- Use an IAM role or least-privilege deployment identity instead of long-lived access keys where possible.
+- Keep the Slack webhook out of source control and rotate it if it is exposed.
+- Confirm the SNS email subscription before relying on alerts.
+- Review AWS Budgets and Lambda costs periodically, even though this project is intended to be lightweight.
+
+---
+
 ## Prerequisites
 
 ### 1 — Python 3.8+
