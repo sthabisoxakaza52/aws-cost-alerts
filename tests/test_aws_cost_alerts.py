@@ -386,6 +386,12 @@ class TestCli:
             main()
         assert exc.value.code != 0
 
+    def test_validate_slack_webhook_requires_slack_domain(self):
+        from cost_alerts.cli import validate_slack_webhook
+
+        with pytest.raises(ValueError):
+            validate_slack_webhook("https://example.com/not-a-slack-webhook")
+
     @pytest.mark.parametrize(
         "extra_args",
         [

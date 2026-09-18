@@ -96,9 +96,19 @@ def validate_budget_name(name):
 def validate_slack_webhook(webhook):
     if webhook is None:
         return
+
     parsed = urlparse(webhook)
-    if parsed.scheme != "https" or not parsed.netloc:
-        raise ValueError("Slack webhook must be a valid HTTPS URL")
+    host = parsed.netloc.lower()
+    allowed_hosts = (
+        "hooks.slack.com",
+        "hooks.slack.com.cn",
+        "hooks.slack-edge.com",
+    )
+
+    if parsed.scheme != "https" or not host or host not in allowed_hosts:
+        raise ValueError(
+            "Slack webhook must be a valid HTTPS URL for a Slack webhook host"
+        )
 
 
 def print_dry_run(args):
