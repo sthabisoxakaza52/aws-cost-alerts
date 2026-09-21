@@ -16,10 +16,9 @@ A Python/Boto3 automation suite that provisions AWS Budget alerts with **email (
 
 | Platform | Endpoint | Status | Description |
 | :--- | :--- | :--- | :--- |
+| **GitHub Pages (Live Dashboard)** | [https://sthabisoxakaza52.github.io/aws-cost-alerts/](https://sthabisoxakaza52.github.io/aws-cost-alerts/) | `Live` (HTTP 200 OK) | Interactive web monitoring dashboard |
 | **AWS Cloud (School Account)** | Account `902061578625` (`eu-north-1`) | `Active` (Live) | AWS Budgets (`MonthlyAWSBudget`) & SNS Topic (`aws-cost-alert-topic`) |
-| **AWS S3 Static Web Host** | [http://aws-
-cost-alerts-902061578625.s3-website.eu-north-1.amazonaws.com](http://aws-cost-alerts-902061578625.s3-website.eu-north-1.amazonaws.com) | `Active` (S3 Hosted) | S3 static web console for AWS Cost Alerts |
-| **GitHub Pages (Live Mirror)** | [https://sthabisoxakaza52.github.io/aws-cost-alerts/](https://sthabisoxakaza52.github.io/aws-cost-alerts/) | `Live` (HTTP 200 OK) | Interactive web monitoring dashboard |
+| **AWS S3 Static Web Host** | `http://aws-cost-alerts-902061578625.s3-website.eu-north-1.amazonaws.com` | `Configured` (S3 Hosted) | S3 static web console for AWS Cost Alerts |
 
 ---
 
