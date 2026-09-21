@@ -13,6 +13,6 @@ ALERT_THRESHOLDS = [
 CURRENCY_RATES = {
     "USD": 1,
     "ZAR": 18.50,
-    "EUR": 21.00,
+    "EUR": 0.92,
     "GBP": 0.79,
 }
