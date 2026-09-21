@@ -10,6 +10,7 @@ from .sns import create_sns_topic
 from .budget import create_budget
 from .lambda_fn import create_slack_lambda
 from .teardown import teardown_resources
+from .dashboard import get_dashboard_path, launch_dashboard
 from .config import DEFAULT_BUDGET_NAME, DEFAULT_REGION, SUPPORTED_REGIONS
 
 
@@ -69,6 +70,19 @@ def build_parser():
         "--destroy",
         action="store_true",
         help="Tear down provisioned AWS cost alert resources"
+    )
+
+    parser.add_argument(
+        "--dashboard",
+        action="store_true",
+        help="Launch or preview the interactive AWS Cost Alerts dashboard"
+    )
+
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port for dashboard local server (default: 8000)"
     )
 
     return parser
@@ -170,11 +184,35 @@ def print_destroy_dry_run(args):
     print(" - IAM Role: aws-cost-alert-lambda-role")
 
 
+def print_dashboard_dry_run(args):
+    path = get_dashboard_path()
+    print("\nAWS Cost Alerts Dashboard")
+    print("=" * 40)
+
+    print("\nDry Run Mode")
+    print("-" * 40)
+    print(f"Dashboard File : {path}")
+    print(f"File Exists    : {path.exists()}")
+    print(f"Target URL     : {path.as_uri()}")
+    print(f"Server Port    : {args.port}")
+    print("Browser launch suppressed in dry-run mode.")
+
+
 def main():
     parser = build_parser()
     args = parser.parse_args()
 
     try:
+        if args.dashboard:
+            if args.dry_run:
+                print_dashboard_dry_run(args)
+                sys.exit(0)
+
+            print("\nAWS Cost Alerts Dashboard")
+            print("=" * 40)
+            launch_dashboard(port=args.port, open_browser=True)
+            sys.exit(0)
+
         if args.destroy:
             validate_region(args.region)
             validate_budget_name(args.budget_name)

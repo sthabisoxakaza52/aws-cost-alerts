@@ -162,6 +162,8 @@ python3 setup_cost_alerts.py \
 | `--region` | ❌ | AWS region (default: `us-east-1`) |
 | `--dry-run` | ❌ | Preview what would be created or destroyed without making any changes |
 | `--destroy` | ❌ | Automated teardown of provisioned AWS resources (Budget, SNS, Lambda, IAM) |
+| `--dashboard` | ❌ | Launch or preview interactive AWS Cost Alerts dashboard |
+| `--port` | ❌ | Port for dashboard local server (default: `8000`) |
 
 ---
 
@@ -216,6 +218,22 @@ python3 setup_cost_alerts.py --destroy
 # Windows PowerShell
 python setup_cost_alerts.py --destroy --dry-run
 python setup_cost_alerts.py --destroy
+```
+
+**Step 4 — View interactive dashboard**
+
+```bash
+# Preview dashboard file path
+python3 setup_cost_alerts.py --dashboard --dry-run
+
+# Open dashboard in browser
+python3 setup_cost_alerts.py --dashboard
+```
+
+```powershell
+# Windows PowerShell
+python setup_cost_alerts.py --dashboard --dry-run
+python setup_cost_alerts.py --dashboard
 ```
 
 ---

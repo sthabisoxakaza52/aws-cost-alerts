@@ -459,6 +459,27 @@ class TestCli:
                 region="us-east-1",
             )
 
+    def test_dashboard_dry_run_exits_zero(self, monkeypatch, capsys):
+        from cost_alerts.cli import main
+        monkeypatch.setattr(sys, "argv", ["aws-cost-alerts", "--dashboard", "--dry-run"])
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code == 0
+        out = capsys.readouterr().out
+        assert "AWS Cost Alerts Dashboard" in out
+        assert "Dry Run Mode" in out
+        assert "Dashboard File" in out
+        assert "Browser launch suppressed in dry-run mode." in out
+
+    def test_dashboard_executes_launch(self, monkeypatch):
+        from cost_alerts.cli import main
+        monkeypatch.setattr(sys, "argv", ["aws-cost-alerts", "--dashboard", "--port", "9000"])
+        with patch("cost_alerts.cli.launch_dashboard") as mock_launch:
+            with pytest.raises(SystemExit) as exc:
+                main()
+            assert exc.value.code == 0
+            mock_launch.assert_called_once_with(port=9000, open_browser=True)
+
 
 class TestTeardownResources:
     def test_teardown_all_resources_success(self):
@@ -549,6 +570,31 @@ class TestTeardownResources:
                 account_id="123456789012",
                 budget_name="MyBudget",
             )
+
+
+class TestDashboard:
+    def test_dashboard_path_exists(self):
+        from cost_alerts.dashboard import get_dashboard_path
+        path = get_dashboard_path()
+        assert path.exists()
+        assert path.name == "dashboard.html"
+
+    def test_launch_dashboard_browser(self):
+        from cost_alerts.dashboard import launch_dashboard
+        with patch("webbrowser.open") as mock_browser:
+            url = launch_dashboard(open_browser=True, serve=False)
+            assert url.startswith("file://")
+            assert url.endswith("dashboard.html")
+            mock_browser.assert_called_once_with(url)
+
+    def test_launch_dashboard_missing_file_raises(self):
+        from cost_alerts.dashboard import launch_dashboard
+        with patch("cost_alerts.dashboard.get_dashboard_path") as mock_path:
+            mock_file = MagicMock()
+            mock_file.exists.return_value = False
+            mock_path.return_value = mock_file
+            with pytest.raises(FileNotFoundError):
+                launch_dashboard()
 
 
 def test_readme_preserves_cleanup_instructions():
