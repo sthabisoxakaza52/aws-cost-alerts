@@ -3,6 +3,7 @@
 [![CI](https://github.com/sthabisoxakaza52/aws-cost-alerts/actions/workflows/ci.yml/badge.svg)](https://github.com/sthabisoxakaza52/aws-cost-alerts/actions/workflows/ci.yml)
 [![Deployment Status](https://github.com/sthabisoxakaza52/aws-cost-alerts/actions/workflows/deploy.yml/badge.svg)](https://github.com/sthabisoxakaza52/aws-cost-alerts/actions)
 ![AWS Cloud](https://img.shields.io/badge/AWS-Budgets%20%2B%20SNS%20%2B%20S3-FF9900?logo=amazon-aws&logoColor=white)
+![CDN](https://img.shields.io/badge/CDN-Amazon%20CloudFront-232F3E?logo=amazon-aws&logoColor=white)
 ![Hosting](https://img.shields.io/badge/Hosting-S3%20%2B%20GitHub%20Pages-232F3E?logo=amazon-s3&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-Live%20in%20AWS-success)
 
@@ -16,6 +17,7 @@ A Python/Boto3 automation suite that provisions AWS Budget alerts with **email (
 
 | Platform | Endpoint | Status | Description |
 | :--- | :--- | :--- | :--- |
+| **AWS CloudFront (Global HTTPS CDN)** | [https://dqn6y9v4r51ro.cloudfront.net](https://dqn6y9v4r51ro.cloudfront.net) | `Live` (HTTPS 200 OK) | Fast, global SSL/TLS CDN for interactive cost alerts dashboard |
 | **GitHub Pages (Live Dashboard)** | [https://sthabisoxakaza52.github.io/aws-cost-alerts/](https://sthabisoxakaza52.github.io/aws-cost-alerts/) | `Live` (HTTP 200 OK) | Interactive web monitoring dashboard |
 | **AWS Cloud (School Account)** | Account `902061578625` (`eu-north-1`) | `Active` (Live) | AWS Budgets (`MonthlyAWSBudget`) & SNS Topic (`aws-cost-alert-topic`) |
 | **AWS S3 Static Web Host** | `http://aws-cost-alerts-902061578625.s3-website.eu-north-1.amazonaws.com` | `Configured` (S3 Hosted) | S3 static web console for AWS Cost Alerts |
@@ -228,6 +230,7 @@ python3 setup_cost_alerts.py \
 | `--dashboard` | ❌ | Launch or preview interactive AWS Cost Alerts dashboard |
 | `--port` | ❌ | Port for dashboard local server (default: `8000`) |
 | `--deploy-dashboard` | ❌ | Deploy interactive dashboard to Amazon S3 static website bucket |
+| `--deploy-cloudfront` | ❌ | Deploy interactive dashboard to AWS CloudFront CDN with S3 Origin Access Control |
 
 ---
 
@@ -299,6 +302,21 @@ python3 setup_cost_alerts.py --dashboard
 python setup_cost_alerts.py --dashboard --dry-run
 python setup_cost_alerts.py --dashboard
 ```
+
+**Step 5 — Deploy to AWS CloudFront CDN (1-command deployment)**
+
+Using the automated CloudShell script:
+```bash
+# In AWS CloudShell
+./deploy_cloudfront.sh
+```
+
+Or using the Python CLI:
+```bash
+python3 setup_cost_alerts.py --deploy-cloudfront --region eu-north-1
+```
+
+Live distribution endpoint: [https://dqn6y9v4r51ro.cloudfront.net](https://dqn6y9v4r51ro.cloudfront.net)
 
 ---
 
