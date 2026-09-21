@@ -18,7 +18,9 @@ from pathlib import Path
 #       ...
 #     tests/
 #       conftest.py       ← this file
-SRC_DIR = Path(__file__).parent.parent / "src"
+ROOT_DIR = Path(__file__).parent.parent
+SRC_DIR = ROOT_DIR / "src"
 
-if SRC_DIR.exists() and str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+for path in (ROOT_DIR, SRC_DIR):
+    if path.exists() and str(path) not in sys.path:
+        sys.path.insert(0, str(path))

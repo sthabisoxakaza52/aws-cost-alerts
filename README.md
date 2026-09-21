@@ -1,5 +1,7 @@
 # AWS Cost Alert Setup
 
+[![CI](https://github.com/sthabisoxakaza52/aws-cost-alerts/actions/workflows/ci.yml/badge.svg)](https://github.com/sthabisoxakaza52/aws-cost-alerts/actions/workflows/ci.yml)
+
 A Python/Boto3 script that provisions AWS Budget alerts with **email (SNS)** and **optional Slack** notifications at 50%, 80%, 100%, and forecasted-100% spend thresholds — with a polished terminal UI and live progress spinners.
 
 **Project code:** `WTC-JJNPY2UD`
