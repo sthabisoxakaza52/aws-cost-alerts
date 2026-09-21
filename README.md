@@ -48,13 +48,17 @@ aws-cost-alerts/
 │   ├── lambda_fn.py               # Slack Lambda forwarder & IAM role management
 │   ├── notifications.py           # Spend threshold definitions (50%, 80%, 100%)
 │   ├── sns.py                     # SNS topic creation & email subscriptions
-│   └── teardown.py                # Automated AWS resource cleanup & teardown
-├── infra/                         # CloudFormation templates & cloud assets
-│   └── cloudfront.yaml            # CloudFront HTTPS CDN + S3 Origin Access Control
-├── scripts/                       # Operational & deployment automation
-│   └── deploy_cloudfront.sh       # 1-command deployment script for AWS CloudShell
+│   ├── teardown.py                # Automated AWS resource cleanup & teardown
+│   └── README.md                  # Package architecture & module documentation
 ├── docs/                          # Public web documentation & GitHub Pages host
-│   └── index.html                 # Live dashboard mirror for GitHub Pages
+│   ├── index.html                 # Live dashboard mirror for GitHub Pages
+│   └── README.md                  # Documentation & GitHub Pages guide
+├── infra/                         # CloudFormation templates & cloud assets
+│   ├── cloudfront.yaml            # CloudFront HTTPS CDN + S3 Origin Access Control
+│   └── README.md                  # Infrastructure guide & resource specifications
+├── scripts/                       # Operational & deployment automation
+│   ├── deploy_cloudfront.sh       # 1-command deployment script for AWS CloudShell
+│   └── README.md                  # Scripts guide & usage instructions
 ├── tests/                         # Modular domain-driven test suite
 │   ├── __init__.py
 │   ├── conftest.py                # Shared fixtures & mock session helpers
@@ -65,7 +69,8 @@ aws-cost-alerts/
 │   ├── test_notifications.py      # Threshold calculation tests (8 tests)
 │   ├── test_readme.py             # Project code & cleanup invariant tests (1 test)
 │   ├── test_sns.py                # SNS topic & email tests (5 tests)
-│   └── test_teardown.py           # Teardown logic tests (3 tests)
+│   ├── test_teardown.py           # Teardown logic tests (3 tests)
+│   └── README.md                  # Test suite documentation & coverage guide
 ├── .gitignore                     # Comprehensive Git ignores
 ├── pyproject.toml                 # Standard Python build configuration
 ├── requirements.txt               # Python package dependencies
@@ -347,7 +352,7 @@ python setup_cost_alerts.py --dashboard
 Using the automated CloudShell script:
 ```bash
 # In AWS CloudShell
-./deploy_cloudfront.sh
+./scripts/deploy_cloudfront.sh
 ```
 
 Or using the Python CLI:
