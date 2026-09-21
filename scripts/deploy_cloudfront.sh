@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
-# Delegate to scripts/deploy_cloudfront.sh if present
+# Change directory to project root if invoked from scripts/
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$SCRIPT_DIR/scripts/deploy_cloudfront.sh" ]; then
-  exec "$SCRIPT_DIR/scripts/deploy_cloudfront.sh" "$@"
-fi
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$ROOT_DIR"
 
 STACK_NAME="aws-cost-alerts-cdn"
 REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-eu-north-1}}"

@@ -118,6 +118,9 @@ def deploy_dashboard_to_s3(session, account_id, region="eu-north-1", bucket_name
 
 def get_cloudfront_template_path():
     """Return the absolute Path to cloudfront.yaml."""
+    infra_template = Path(__file__).parent.parent / "infra" / "cloudfront.yaml"
+    if infra_template.exists():
+        return infra_template
     return Path(__file__).parent.parent / "cloudfront.yaml"
 
 

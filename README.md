@@ -28,6 +28,53 @@ A Python/Boto3 automation suite that provisions AWS Budget alerts with **email (
 
 ---
 
+## Project Structure
+
+```text
+aws-cost-alerts/
+├── .github/
+│   ├── workflows/
+│   │   ├── ci.yml                 # Multi-version Python CI pipeline (3.9 - 3.12)
+│   │   └── deploy.yml             # GitHub Pages automated publishing
+│   └── copilot-instructions.md    # Repository coding invariants
+├── cost_alerts/                   # Core Python application package
+│   ├── __init__.py                # Package initialization
+│   ├── aws_clients.py             # Boto3 session & STS credentials
+│   ├── budget.py                  # AWS Budgets management (create/update)
+│   ├── cli.py                     # Command-line interface & argument parsing
+│   ├── config.py                  # Configuration defaults & thresholds
+│   ├── dashboard.html             # Interactive cost alerts monitoring console
+│   ├── dashboard.py               # Dashboard launcher, S3 & CloudFront deployers
+│   ├── lambda_fn.py               # Slack Lambda forwarder & IAM role management
+│   ├── notifications.py           # Spend threshold definitions (50%, 80%, 100%)
+│   ├── sns.py                     # SNS topic creation & email subscriptions
+│   └── teardown.py                # Automated AWS resource cleanup & teardown
+├── infra/                         # CloudFormation templates & cloud assets
+│   └── cloudfront.yaml            # CloudFront HTTPS CDN + S3 Origin Access Control
+├── scripts/                       # Operational & deployment automation
+│   └── deploy_cloudfront.sh       # 1-command deployment script for AWS CloudShell
+├── docs/                          # Public web documentation & GitHub Pages host
+│   └── index.html                 # Live dashboard mirror for GitHub Pages
+├── tests/                         # Modular domain-driven test suite
+│   ├── __init__.py
+│   ├── conftest.py                # Shared fixtures & mock session helpers
+│   ├── test_budget.py             # AWS Budgets tests (11 tests)
+│   ├── test_cli.py                # CLI argument & dry-run tests (20 tests)
+│   ├── test_dashboard.py          # Dashboard & deployment tests (7 tests)
+│   ├── test_lambda_fn.py          # Slack forwarder Lambda tests (11 tests)
+│   ├── test_notifications.py      # Threshold calculation tests (8 tests)
+│   ├── test_readme.py             # Project code & cleanup invariant tests (1 test)
+│   ├── test_sns.py                # SNS topic & email tests (5 tests)
+│   └── test_teardown.py           # Teardown logic tests (3 tests)
+├── .gitignore                     # Comprehensive Git ignores
+├── pyproject.toml                 # Standard Python build configuration
+├── requirements.txt               # Python package dependencies
+├── setup_cost_alerts.py           # Backward-compatible entry point
+└── README.md                      # Project documentation & live endpoints
+```
+
+---
+
 ## Cloud architecture overview
 
 This project demonstrates a lightweight AWS monitoring workflow built around budget automation and event-driven notifications:

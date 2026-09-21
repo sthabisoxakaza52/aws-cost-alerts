@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aws-cost-alerts"
+version = "1.0.0"
+description = "AWS Budget alerts automation with SNS email, Slack Lambda forwarder, and interactive dashboard."
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "boto3>=1.26.0",
+    "botocore>=1.29.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+aws-cost-alerts = "cost_alerts.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
