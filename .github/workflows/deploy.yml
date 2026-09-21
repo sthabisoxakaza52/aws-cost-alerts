@@ -1,17 +1,26 @@
-name: Deploy Dashboard
+name: Deploy
 
 on:
   push:
     branches: [ "main" ]
-    paths:
-      - "cost_alerts/dashboard.html"
-      - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
-  deploy:
-    name: Deploy to S3
+  test-and-deploy:
+    name: Build & Deploy
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Check out repository
@@ -31,15 +40,32 @@ jobs:
         run: |
           pytest -v
 
-      - name: Deploy Dashboard to S3
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build Pages artifact
+        run: |
+          mkdir -p _site
+          cp cost_alerts/dashboard.html _site/index.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Deploy Dashboard to S3 (if AWS configured)
         env:
           AWS_KEY: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'eu-north-1' }}
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
         run: |
           if [ -z "$AWS_KEY" ] || [ -z "$AWS_SECRET" ] || [ -z "$S3_BUCKET" ]; then
-            echo "::notice title=S3 Deployment Skipped::AWS secrets (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, S3_BUCKET) are not configured in GitHub repository secrets. Deployment step skipped safely."
+            echo "::notice title=S3 Mirror Skipped::AWS secrets are not configured in GitHub repository secrets. GitHub Pages deployment succeeded."
             exit 0
           fi
 
@@ -48,6 +74,6 @@ jobs:
           export AWS_SECRET_ACCESS_KEY="$AWS_SECRET"
           export AWS_DEFAULT_REGION="$AWS_REGION"
 
-          echo "Uploading dashboard.html to s3://$S3_BUCKET/index.html..."
+          echo "Uploading dashboard to s3://$S3_BUCKET/index.html..."
           aws s3 cp cost_alerts/dashboard.html "s3://$S3_BUCKET/index.html" --content-type "text/html"
-          echo "Dashboard successfully deployed to s3://$S3_BUCKET/index.html"
+          echo "Dashboard successfully mirrored to s3://$S3_BUCKET/index.html"

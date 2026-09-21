@@ -1,10 +1,25 @@
 # AWS Cost Alert Setup
 
 [![CI](https://github.com/sthabisoxakaza52/aws-cost-alerts/actions/workflows/ci.yml/badge.svg)](https://github.com/sthabisoxakaza52/aws-cost-alerts/actions/workflows/ci.yml)
+[![Deployment Status](https://github.com/sthabisoxakaza52/aws-cost-alerts/actions/workflows/deploy.yml/badge.svg)](https://github.com/sthabisoxakaza52/aws-cost-alerts/actions)
+![AWS Cloud](https://img.shields.io/badge/AWS-Budgets%20%2B%20SNS%20%2B%20S3-FF9900?logo=amazon-aws&logoColor=white)
+![Hosting](https://img.shields.io/badge/Hosting-S3%20%2B%20GitHub%20Pages-232F3E?logo=amazon-s3&logoColor=white)
+![Status](https://img.shields.io/badge/Status-Live%20in%20AWS-success)
 
-A Python/Boto3 script that provisions AWS Budget alerts with **email (SNS)** and **optional Slack** notifications at 50%, 80%, 100%, and forecasted-100% spend thresholds — with a polished terminal UI and live progress spinners.
+A Python/Boto3 automation suite that provisions AWS Budget alerts with **email (SNS)** and **optional Slack** notifications at 50%, 80%, 100%, and forecasted-100% spend thresholds — complete with an interactive dashboard and automated cloud deployment.
 
 **Project code:** `WTC-JJNPY2UD`
+
+---
+
+## Live Endpoints
+
+| Platform | Endpoint | Status | Description |
+| :--- | :--- | :--- | :--- |
+| **AWS Cloud (School Account)** | Account `902061578625` (`eu-north-1`) | `Active` (Live) | AWS Budgets (`MonthlyAWSBudget`) & SNS Topic (`aws-cost-alert-topic`) |
+| **AWS S3 Static Web Host** | [http://aws-
+cost-alerts-902061578625.s3-website.eu-north-1.amazonaws.com](http://aws-cost-alerts-902061578625.s3-website.eu-north-1.amazonaws.com) | `Active` (S3 Hosted) | S3 static web console for AWS Cost Alerts |
+| **GitHub Pages (Live Mirror)** | [https://sthabisoxakaza52.github.io/aws-cost-alerts/](https://sthabisoxakaza52.github.io/aws-cost-alerts/) | `Live` (HTTP 200 OK) | Interactive web monitoring dashboard |
 
 ---
 
