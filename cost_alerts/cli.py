@@ -10,7 +10,12 @@ from .sns import create_sns_topic
 from .budget import create_budget
 from .lambda_fn import create_slack_lambda
 from .teardown import teardown_resources
-from .dashboard import get_dashboard_path, launch_dashboard, deploy_dashboard_to_s3
+from .dashboard import (
+    get_dashboard_path,
+    launch_dashboard,
+    deploy_dashboard_to_s3,
+    deploy_dashboard_to_cloudfront,
+)
 from .config import DEFAULT_BUDGET_NAME, DEFAULT_REGION, SUPPORTED_REGIONS
 
 
@@ -89,6 +94,12 @@ def build_parser():
         "--deploy-dashboard",
         action="store_true",
         help="Deploy the interactive dashboard to an Amazon S3 static website bucket"
+    )
+
+    parser.add_argument(
+        "--deploy-cloudfront",
+        action="store_true",
+        help="Deploy the interactive dashboard to AWS CloudFront CDN with S3 Origin Access Control"
     )
 
     return parser
@@ -204,6 +215,19 @@ def print_dashboard_dry_run(args):
     print("Browser launch suppressed in dry-run mode.")
 
 
+def print_deploy_cloudfront_dry_run(args):
+    path = get_dashboard_path()
+    print("\nAWS Cost Alerts Dashboard CloudFront Deployment")
+    print("=" * 40)
+
+    print("\nDry Run Mode")
+    print("-" * 40)
+    print(f"Target Region : {args.region}")
+    print(f"Stack Name    : aws-cost-alerts-cdn")
+    print(f"Dashboard File: {path}")
+    print("CloudFormation stack deployment and S3 upload suppressed in dry-run mode.")
+
+
 def main():
     parser = build_parser()
     args = parser.parse_args()
@@ -242,6 +266,26 @@ def main():
             deploy_dashboard_to_s3(
                 session=session,
                 account_id=account_id,
+                region=args.region
+            )
+            sys.exit(0)
+
+        if args.deploy_cloudfront:
+            validate_region(args.region)
+
+            if args.dry_run:
+                print_deploy_cloudfront_dry_run(args)
+                sys.exit(0)
+
+            print("\nAWS Cost Alerts Dashboard CloudFront Deployment")
+            print("=" * 40)
+            session = get_session(args.profile, args.region)
+            print("\nConnecting to AWS...")
+            account_id = get_account_id(session)
+            print(f"Connected to AWS Account: {account_id}\n")
+
+            deploy_dashboard_to_cloudfront(
+                session=session,
                 region=args.region
             )
             sys.exit(0)

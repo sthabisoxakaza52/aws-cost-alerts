@@ -115,3 +115,94 @@ def deploy_dashboard_to_s3(session, account_id, region="eu-north-1", bucket_name
         "presigned_url": presigned_url
     }
 
+
+def get_cloudfront_template_path():
+    """Return the absolute Path to cloudfront.yaml."""
+    return Path(__file__).parent.parent / "cloudfront.yaml"
+
+
+def deploy_dashboard_to_cloudfront(session, region="eu-north-1", stack_name="aws-cost-alerts-cdn", bucket_name=""):
+    """
+    Deploy or update CloudFormation stack with CloudFront OAC and S3 bucket,
+    and upload dashboard.html to the bucket.
+    """
+    cf_client = session.client("cloudformation", region_name=region)
+    s3_client = session.client("s3", region_name=region)
+    dashboard_path = get_dashboard_path()
+    template_path = get_cloudfront_template_path()
+
+    if not dashboard_path.exists():
+        raise FileNotFoundError(f"Dashboard file not found at {dashboard_path}")
+    if not template_path.exists():
+        raise FileNotFoundError(f"CloudFront template not found at {template_path}")
+
+    template_body = template_path.read_text(encoding="utf-8")
+
+    params = []
+    if bucket_name:
+        params.append({"ParameterKey": "BucketName", "ParameterValue": bucket_name})
+
+    print(f"Deploying CloudFormation stack '{stack_name}' in {region}...")
+    try:
+        cf_client.describe_stacks(StackName=stack_name)
+        stack_exists = True
+    except Exception:
+        stack_exists = False
+
+    if not stack_exists:
+        print("Creating CloudFormation stack (CloudFront distribution provisioning takes ~2-3 mins)...")
+        cf_client.create_stack(
+            StackName=stack_name,
+            TemplateBody=template_body,
+            Parameters=params,
+            Capabilities=["CAPABILITY_IAM"]
+        )
+        waiter = cf_client.get_waiter("stack_create_complete")
+        waiter.wait(StackName=stack_name)
+    else:
+        print("Updating existing CloudFormation stack...")
+        try:
+            cf_client.update_stack(
+                StackName=stack_name,
+                TemplateBody=template_body,
+                Parameters=params,
+                Capabilities=["CAPABILITY_IAM"]
+            )
+            waiter = cf_client.get_waiter("stack_update_complete")
+            waiter.wait(StackName=stack_name)
+        except Exception as exc:
+            msg = str(exc)
+            if "No updates are to be performed" in msg:
+                print("CloudFormation stack is already up to date.")
+            else:
+                raise
+
+    desc = cf_client.describe_stacks(StackName=stack_name)
+    outputs = {o["OutputKey"]: o["OutputValue"] for o in desc["Stacks"][0].get("Outputs", [])}
+    bucket = outputs.get("BucketName", "")
+    website_url = outputs.get("WebsiteURL", "")
+    dist_id = outputs.get("DistributionId", "")
+
+    print(f"Uploading {dashboard_path.name} to s3://{bucket}/index.html...")
+    s3_client.upload_file(
+        str(dashboard_path),
+        bucket,
+        "index.html",
+        ExtraArgs={"ContentType": "text/html"}
+    )
+
+    print("\n" + "=" * 50)
+    print("Dashboard Deployed Successfully to CloudFront!")
+    print(f"CloudFront URL   : {website_url}")
+    print(f"Distribution ID  : {dist_id}")
+    print(f"S3 Origin Bucket : {bucket}")
+    print("=" * 50)
+
+    return {
+        "stack_name": stack_name,
+        "bucket": bucket,
+        "website_url": website_url,
+        "distribution_id": dist_id
+    }
+
+

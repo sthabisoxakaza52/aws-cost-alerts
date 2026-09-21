@@ -505,6 +505,31 @@ class TestCli:
                 region="eu-north-1"
             )
 
+    def test_deploy_cloudfront_dry_run_exits_zero(self, monkeypatch, capsys):
+        from cost_alerts.cli import main
+        monkeypatch.setattr(sys, "argv", ["aws-cost-alerts", "--deploy-cloudfront", "--dry-run"])
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code == 0
+        out = capsys.readouterr().out
+        assert "AWS Cost Alerts Dashboard CloudFront Deployment" in out
+        assert "Dry Run Mode" in out
+
+    def test_deploy_cloudfront_executes(self, monkeypatch):
+        from cost_alerts.cli import main
+        monkeypatch.setattr(sys, "argv", ["aws-cost-alerts", "--deploy-cloudfront", "--region", "eu-north-1"])
+        with patch("cost_alerts.cli.get_session"), \
+             patch("cost_alerts.cli.get_account_id", return_value="123456789012"), \
+             patch("cost_alerts.cli.deploy_dashboard_to_cloudfront") as mock_deploy:
+            with pytest.raises(SystemExit) as exc:
+                main()
+            assert exc.value.code == 0
+            mock_deploy.assert_called_once_with(
+                session=mock_deploy.call_args[1]["session"],
+                region="eu-north-1"
+            )
+
+
 
 class TestTeardownResources:
     def test_teardown_all_resources_success(self):
@@ -645,6 +670,85 @@ class TestDashboard:
         assert res["bucket"] == "my-test-bucket"
         assert "http://my-test-bucket.s3-website.eu-north-1.amazonaws.com" in res["website_url"]
         assert res["presigned_url"] == "https://s3.amazonaws.com/test-url"
+
+    def test_cloudfront_template_path_exists(self):
+        from cost_alerts.dashboard import get_cloudfront_template_path
+        path = get_cloudfront_template_path()
+        assert path.exists()
+        assert path.name == "cloudfront.yaml"
+
+    def test_deploy_dashboard_to_cloudfront_success(self):
+        from cost_alerts.dashboard import deploy_dashboard_to_cloudfront
+
+        cf = MagicMock()
+        stack_outputs = {
+            "Stacks": [
+                {
+                    "Outputs": [
+                        {"OutputKey": "BucketName", "OutputValue": "my-cf-bucket"},
+                        {"OutputKey": "DistributionId", "OutputValue": "E12345EXAMPLE"},
+                        {"OutputKey": "WebsiteURL", "OutputValue": "https://d123456789.cloudfront.net"},
+                    ]
+                }
+            ]
+        }
+        cf.describe_stacks.side_effect = [Exception("Stack does not exist"), stack_outputs]
+        waiter = MagicMock()
+        cf.get_waiter.return_value = waiter
+
+        s3 = MagicMock()
+        session = MagicMock()
+        session.client.side_effect = lambda svc, **kw: {"cloudformation": cf, "s3": s3}[svc]
+
+        res = deploy_dashboard_to_cloudfront(
+            session=session,
+            region="eu-north-1",
+            stack_name="aws-cost-alerts-cdn",
+        )
+
+        assert cf.describe_stacks.call_count == 2
+        cf.create_stack.assert_called_once()
+        waiter.wait.assert_called_once_with(StackName="aws-cost-alerts-cdn")
+        s3.upload_file.assert_called_once()
+        assert res["bucket"] == "my-cf-bucket"
+        assert res["distribution_id"] == "E12345EXAMPLE"
+        assert res["website_url"] == "https://d123456789.cloudfront.net"
+
+    def test_deploy_dashboard_to_cloudfront_update(self):
+        from cost_alerts.dashboard import deploy_dashboard_to_cloudfront
+
+        cf = MagicMock()
+        stack_outputs = {
+            "Stacks": [
+                {
+                    "Outputs": [
+                        {"OutputKey": "BucketName", "OutputValue": "my-cf-bucket"},
+                        {"OutputKey": "DistributionId", "OutputValue": "E12345EXAMPLE"},
+                        {"OutputKey": "WebsiteURL", "OutputValue": "https://d123456789.cloudfront.net"},
+                    ]
+                }
+            ]
+        }
+        cf.describe_stacks.return_value = stack_outputs
+        waiter = MagicMock()
+        cf.get_waiter.return_value = waiter
+
+        s3 = MagicMock()
+        session = MagicMock()
+        session.client.side_effect = lambda svc, **kw: {"cloudformation": cf, "s3": s3}[svc]
+
+        res = deploy_dashboard_to_cloudfront(
+            session=session,
+            region="eu-north-1",
+            stack_name="aws-cost-alerts-cdn",
+        )
+
+        cf.update_stack.assert_called_once()
+        waiter.wait.assert_called_once_with(StackName="aws-cost-alerts-cdn")
+        s3.upload_file.assert_called_once()
+        assert res["website_url"] == "https://d123456789.cloudfront.net"
+
+
 
 
 def test_readme_preserves_cleanup_instructions():
