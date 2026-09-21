@@ -1,5 +1,5 @@
 DEFAULT_REGION = "us-east-1"
-SUPPORTED_REGIONS = ["us-east-1", "us-west-1", "us-west-2"]
+SUPPORTED_REGIONS = ["us-east-1", "us-west-1", "us-west-2", "eu-north-1"]
 
 DEFAULT_BUDGET_NAME = "MonthlyAWSBudget"
 
