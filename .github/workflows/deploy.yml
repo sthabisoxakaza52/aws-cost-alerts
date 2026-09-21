@@ -2,31 +2,20 @@ name: Deploy
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  contents: write
 
 jobs:
-  test-and-deploy:
-    name: Build & Deploy
+  deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -36,44 +25,39 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run test suite
-        run: |
-          pytest -v
+      - name: Verify test suite
+        run: pytest -v
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Build Pages artifact
+      - name: Prepare site directory
         run: |
           mkdir -p _site
           cp cost_alerts/dashboard.html _site/index.html
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
 
-      - name: Deploy Dashboard to S3 (if AWS configured)
+      - name: Deploy to Amazon S3 (if configured)
+        if: ${{ env.AWS_KEY != '' && env.AWS_SECRET != '' && env.S3_BUCKET != '' }}
         env:
           AWS_KEY: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION || 'eu-north-1' }}
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'eu-north-1' }}
         run: |
-          if [ -z "$AWS_KEY" ] || [ -z "$AWS_SECRET" ] || [ -z "$S3_BUCKET" ]; then
-            echo "::notice title=S3 Mirror Skipped::AWS secrets are not configured in GitHub repository secrets. GitHub Pages deployment succeeded."
-            exit 0
-          fi
-
-          echo "Configuring AWS credentials..."
           export AWS_ACCESS_KEY_ID="$AWS_KEY"
           export AWS_SECRET_ACCESS_KEY="$AWS_SECRET"
           export AWS_DEFAULT_REGION="$AWS_REGION"
-
-          echo "Uploading dashboard to s3://$S3_BUCKET/index.html..."
           aws s3 cp cost_alerts/dashboard.html "s3://$S3_BUCKET/index.html" --content-type "text/html"
-          echo "Dashboard successfully mirrored to s3://$S3_BUCKET/index.html"
+          echo "Successfully mirrored dashboard to s3://$S3_BUCKET/index.html"
+
+      - name: Deployment status notice
+        if: ${{ env.AWS_KEY == '' || env.AWS_SECRET == '' || env.S3_BUCKET == '' }}
+        env:
+          AWS_KEY: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          echo "::notice title=Deployment Validation Passed::Project verified and GitHub Pages deployed. To mirror to S3 on push, add AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and S3_BUCKET to GitHub repository secrets."
