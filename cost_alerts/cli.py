@@ -9,10 +9,11 @@ from .aws_clients import get_session, get_sts_client
 from .sns import create_sns_topic
 from .budget import create_budget
 from .lambda_fn import create_slack_lambda
+from .teardown import teardown_resources
 from .config import DEFAULT_BUDGET_NAME, DEFAULT_REGION, SUPPORTED_REGIONS
 
 
-def parse_args():
+def build_parser():
     parser = argparse.ArgumentParser(
         prog="aws-cost-alerts",
         description=(
@@ -23,14 +24,14 @@ def parse_args():
 
     parser.add_argument(
         "--budget",
-        required=True,
         type=float,
+        default=None,
         help="Monthly AWS budget in USD"
     )
 
     parser.add_argument(
         "--email",
-        required=True,
+        default=None,
         help="Email address for AWS budget alerts"
     )
 
@@ -64,7 +65,17 @@ def parse_args():
         help="Preview resources without creating them"
     )
 
-    return parser.parse_args()
+    parser.add_argument(
+        "--destroy",
+        action="store_true",
+        help="Tear down provisioned AWS cost alert resources"
+    )
+
+    return parser
+
+
+def parse_args(args=None):
+    return build_parser().parse_args(args)
 
 
 def get_account_id(session):
@@ -140,10 +151,66 @@ def print_dry_run(args):
     print(" - 100% Forecasted")
 
 
+def print_destroy_dry_run(args):
+    print("\nAWS Cost Alerts Teardown")
+    print("=" * 40)
+
+    print("\nDry Run Mode")
+    print("-" * 40)
+    print("No AWS resources will be modified.")
+
+    print(f"Budget Name   : {args.budget_name}")
+    print(f"AWS Profile   : {args.profile or 'default'}")
+    print(f"AWS Region    : {args.region}")
+
+    print("\nResources to be deleted:")
+    print(f" - AWS Budget: {args.budget_name}")
+    print(" - SNS Topic: aws-cost-alert-topic")
+    print(" - Lambda Function: aws-cost-alert-slack-forwarder")
+    print(" - IAM Role: aws-cost-alert-lambda-role")
+
+
 def main():
-    args = parse_args()
+    parser = build_parser()
+    args = parser.parse_args()
 
     try:
+        if args.destroy:
+            validate_region(args.region)
+            validate_budget_name(args.budget_name)
+
+            if args.dry_run:
+                print_destroy_dry_run(args)
+                sys.exit(0)
+
+            print("\nAWS Cost Alerts Teardown")
+            print("=" * 40)
+
+            session = get_session(args.profile, args.region)
+
+            print("\nConnecting to AWS...")
+            account_id = get_account_id(session)
+            print(f"Connected to AWS Account: {account_id}\n")
+
+            teardown_resources(
+                session=session,
+                account_id=account_id,
+                budget_name=args.budget_name,
+                region=args.region,
+            )
+
+            print("\nAWS cost alert resources successfully cleaned up.")
+            sys.exit(0)
+
+        # Normal setup workflow requires --budget and --email
+        if args.budget is None or args.email is None:
+            missing = []
+            if args.budget is None:
+                missing.append("--budget")
+            if args.email is None:
+                missing.append("--email")
+            parser.error(f"the following arguments are required: {', '.join(missing)}")
+
         validate_budget(args.budget)
         validate_region(args.region)
         validate_email(args.email)

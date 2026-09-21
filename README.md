@@ -160,7 +160,8 @@ python3 setup_cost_alerts.py \
 | `--budget-name` | ❌ | Custom name for the budget (default: `MonthlyAWSBudget`) |
 | `--profile` | ❌ | AWS CLI named profile to use |
 | `--region` | ❌ | AWS region (default: `us-east-1`) |
-| `--dry-run` | ❌ | Preview what would be created without making any changes |
+| `--dry-run` | ❌ | Preview what would be created or destroyed without making any changes |
+| `--destroy` | ❌ | Automated teardown of provisioned AWS resources (Budget, SNS, Lambda, IAM) |
 
 ---
 
@@ -199,6 +200,22 @@ python3 setup_cost_alerts.py \
 
 ```bash
 python3 setup_cost_alerts.py --budget 150 --email alerts@mycompany.com
+```
+
+**Step 3 — Automated teardown / cleanup (when done)**
+
+```bash
+# Preview resources to be deleted without modifying AWS
+python3 setup_cost_alerts.py --destroy --dry-run
+
+# Run automated teardown
+python3 setup_cost_alerts.py --destroy
+```
+
+```powershell
+# Windows PowerShell
+python setup_cost_alerts.py --destroy --dry-run
+python setup_cost_alerts.py --destroy
 ```
 
 ---
