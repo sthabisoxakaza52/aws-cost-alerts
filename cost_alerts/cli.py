@@ -10,7 +10,7 @@ from .sns import create_sns_topic
 from .budget import create_budget
 from .lambda_fn import create_slack_lambda
 from .teardown import teardown_resources
-from .dashboard import get_dashboard_path, launch_dashboard
+from .dashboard import get_dashboard_path, launch_dashboard, deploy_dashboard_to_s3
 from .config import DEFAULT_BUDGET_NAME, DEFAULT_REGION, SUPPORTED_REGIONS
 
 
@@ -83,6 +83,12 @@ def build_parser():
         type=int,
         default=8000,
         help="Port for dashboard local server (default: 8000)"
+    )
+
+    parser.add_argument(
+        "--deploy-dashboard",
+        action="store_true",
+        help="Deploy the interactive dashboard to an Amazon S3 static website bucket"
     )
 
     return parser
@@ -211,6 +217,33 @@ def main():
             print("\nAWS Cost Alerts Dashboard")
             print("=" * 40)
             launch_dashboard(port=args.port, open_browser=True)
+            sys.exit(0)
+
+        if args.deploy_dashboard:
+            validate_region(args.region)
+
+            if args.dry_run:
+                print("\nAWS Cost Alerts Dashboard S3 Deployment")
+                print("=" * 40)
+                print("\nDry Run Mode")
+                print("-" * 40)
+                print(f"Target Region : {args.region}")
+                print(f"Dashboard File: {get_dashboard_path()}")
+                print("Bucket creation and S3 upload suppressed in dry-run mode.")
+                sys.exit(0)
+
+            print("\nAWS Cost Alerts Dashboard S3 Deployment")
+            print("=" * 40)
+            session = get_session(args.profile, args.region)
+            print("\nConnecting to AWS...")
+            account_id = get_account_id(session)
+            print(f"Connected to AWS Account: {account_id}\n")
+
+            deploy_dashboard_to_s3(
+                session=session,
+                account_id=account_id,
+                region=args.region
+            )
             sys.exit(0)
 
         if args.destroy:

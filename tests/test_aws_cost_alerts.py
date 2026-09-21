@@ -480,6 +480,31 @@ class TestCli:
             assert exc.value.code == 0
             mock_launch.assert_called_once_with(port=9000, open_browser=True)
 
+    def test_deploy_dashboard_dry_run_exits_zero(self, monkeypatch, capsys):
+        from cost_alerts.cli import main
+        monkeypatch.setattr(sys, "argv", ["aws-cost-alerts", "--deploy-dashboard", "--dry-run"])
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code == 0
+        out = capsys.readouterr().out
+        assert "AWS Cost Alerts Dashboard S3 Deployment" in out
+        assert "Dry Run Mode" in out
+
+    def test_deploy_dashboard_executes(self, monkeypatch):
+        from cost_alerts.cli import main
+        monkeypatch.setattr(sys, "argv", ["aws-cost-alerts", "--deploy-dashboard", "--region", "eu-north-1"])
+        with patch("cost_alerts.cli.get_session"), \
+             patch("cost_alerts.cli.get_account_id", return_value="123456789012"), \
+             patch("cost_alerts.cli.deploy_dashboard_to_s3") as mock_deploy:
+            with pytest.raises(SystemExit) as exc:
+                main()
+            assert exc.value.code == 0
+            mock_deploy.assert_called_once_with(
+                session=mock_deploy.call_args[1]["session"],
+                account_id="123456789012",
+                region="eu-north-1"
+            )
+
 
 class TestTeardownResources:
     def test_teardown_all_resources_success(self):
@@ -595,6 +620,31 @@ class TestDashboard:
             mock_path.return_value = mock_file
             with pytest.raises(FileNotFoundError):
                 launch_dashboard()
+
+    def test_deploy_dashboard_to_s3_success(self):
+        from cost_alerts.dashboard import deploy_dashboard_to_s3
+
+        s3 = MagicMock()
+        s3.generate_presigned_url.return_value = "https://s3.amazonaws.com/test-url"
+        session = MagicMock()
+        session.client.return_value = s3
+
+        res = deploy_dashboard_to_s3(
+            session=session,
+            account_id="123456789012",
+            region="eu-north-1",
+            bucket_name="my-test-bucket",
+        )
+
+        s3.create_bucket.assert_called_once_with(
+            Bucket="my-test-bucket",
+            CreateBucketConfiguration={"LocationConstraint": "eu-north-1"},
+        )
+        s3.upload_file.assert_called_once()
+        s3.put_bucket_website.assert_called_once()
+        assert res["bucket"] == "my-test-bucket"
+        assert "http://my-test-bucket.s3-website.eu-north-1.amazonaws.com" in res["website_url"]
+        assert res["presigned_url"] == "https://s3.amazonaws.com/test-url"
 
 
 def test_readme_preserves_cleanup_instructions():

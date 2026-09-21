@@ -24,6 +24,55 @@ A Python/Boto3 script that provisions AWS Budget alerts with **email (SNS)** and
 
 This project demonstrates a lightweight AWS monitoring workflow built around budget automation and event-driven notifications:
 
+```mermaid
+flowchart LR
+    subgraph Governance["Cost Monitoring Layer"]
+        A["AWS Budgets<br/><code>MonthlyAWSBudget</code>"]
+    end
+
+    subgraph Messaging["Event Distribution Layer"]
+        B["Amazon SNS Topic<br/><code>aws-cost-alert-topic</code>"]
+    end
+
+    subgraph Subscribers["Notification Targets"]
+        C["Email Subscription<br/>(Immediate Alert)"]
+        D["AWS Lambda<br/><code>aws-cost-alert-slack-forwarder</code>"]
+        E["Slack Webhook<br/>(#alerts channel)"]
+    end
+
+    A -->|"Threshold Trigger (50%, 80%, 100%, Forecast)"| B
+    B -->|"Email Protocol"| C
+    B -->|"Invoke Function"| D
+    D -->|"HTTPS POST (JSON payload)"| E
+```
+
+### Visual Architecture Flow
+
+```text
+  ┌──────────────────────┐
+  │     AWS Budgets      │ (Evaluates monthly spend against limit)
+  │  (MonthlyAWSBudget)  │
+  └──────────┬───────────┘
+             │ Alert Event (50%, 80%, 100% Actual / Forecasted)
+             ▼
+  ┌──────────────────────┐
+  │   Amazon SNS Topic   │ (Fan-out notification hub)
+  │(aws-cost-alert-topic)│
+  └─────┬──────────┬─────┘
+        │          │
+        │ Email    │ Lambda Invoke
+        ▼          ▼
+  ┌───────────┐  ┌─────────────────────────────────┐
+  │ Recipient │  │       AWS Lambda Forwarder      │
+  │   Email   │  │(aws-cost-alert-slack-forwarder) │
+  └───────────┘  └────────────────┬────────────────┘
+                                  │ HTTPS Webhook POST
+                                  ▼
+                         ┌─────────────────┐
+                         │  Slack Channel  │
+                         └─────────────────┘
+```
+
 - **AWS Budgets** tracks monthly spend thresholds and raises alarms when usage crosses configured limits.
 - **Amazon SNS** receives the budget events and distributes them to an email subscription.
 - **AWS Lambda** forwards SNS messages to Slack through an incoming webhook for real-time team alerts.
@@ -159,11 +208,12 @@ python3 setup_cost_alerts.py \
 | `--slack-webhook` | ❌ | Slack incoming webhook URL — omit to skip Slack setup |
 | `--budget-name` | ❌ | Custom name for the budget (default: `MonthlyAWSBudget`) |
 | `--profile` | ❌ | AWS CLI named profile to use |
-| `--region` | ❌ | AWS region (default: `us-east-1`) |
+| `--region` | ❌ | AWS region: `us-east-1`, `us-west-1`, `us-west-2`, `eu-north-1` (default: `us-east-1`) |
 | `--dry-run` | ❌ | Preview what would be created or destroyed without making any changes |
 | `--destroy` | ❌ | Automated teardown of provisioned AWS resources (Budget, SNS, Lambda, IAM) |
 | `--dashboard` | ❌ | Launch or preview interactive AWS Cost Alerts dashboard |
 | `--port` | ❌ | Port for dashboard local server (default: `8000`) |
+| `--deploy-dashboard` | ❌ | Deploy interactive dashboard to Amazon S3 static website bucket |
 
 ---
 
