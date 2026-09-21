@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AWS Cost Alerts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #f5f3ef;
+  --bg2:      #ede9e2;
+  --bg3:      #e4dfd6;
+  --bg4:      #d6cfc4;
+  --surface:  #faf9f7;
+  --border:   #ccc6bb;
+  --border2:  #b8b0a3;
+  --text:     #1a1714;
+  --text2:    #5a534a;
+  --text3:    #8c8278;
+  --accent:   #c0392b;
+  --accent2:  #96281b;
+  --accent-bg:#fdf1f0;
+  --green:    #1a7340;
+  --green-bg: #edf7f1;
+  --amber:    #8a5d00;
+  --amber-bg: #fdf6e3;
+  --red:      #b91c1c;
+  --red-bg:   #fef2f2;
+  --blue:     #1d4ed8;
+  --blue-bg:  #eff6ff;
+  --font:     'IBM Plex Sans', sans-serif;
+  --mono:     'IBM Plex Mono', monospace;
+  --r:        4px;
+  --r2:       6px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ── LAYOUT ── */
+.shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: 48px 1fr;
+  min-height: 100vh;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  grid-column: 1 / -1;
+  background: var(--text);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 0;
+}
+.topbar-brand {
+  display: flex; align-items: center; gap: 10px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding-right: 20px;
+  border-right: 1px solid rgba(255,255,255,0.12);
+}
+.brand-icon {
+  width: 22px; height: 22px;
+  background: var(--accent);
+  border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+}
+.brand-icon svg { width: 12px; height: 12px; fill: #fff; }
+
+.topbar-spacer { flex: 1; }
+
+.topbar-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px;
+  font-family: var(--mono);
+  color: rgba(255,255,255,0.5);
+}
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+}
+.status-dot.green  { background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.6); }
+.status-dot.amber  { background: #fbbf24; box-shadow: 0 0 6px rgba(251,191,36,0.6); }
+.status-dot.red    { background: #f87171; box-shadow: 0 0 6px rgba(248,113,113,0.6); }
+#topbar-label { color: rgba(255,255,255,0.75); }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 0;
+  display: flex; flex-direction: column;
+}
+.sidebar-section {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text3);
+  padding: 16px 16px 6px;
+  font-family: var(--mono);
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 16px;
+  font-size: 13px; color: var(--text2);
+  cursor: pointer; border: none;
+  background: transparent; width: 100%; text-align: left;
+  font-family: var(--font); border-left: 2px solid transparent;
+  transition: all 0.1s;
+}
+.nav-item svg { width: 14px; height: 14px; flex-shrink: 0; opacity: 0.6; }
+.nav-item:hover { background: var(--bg2); color: var(--text); }
+.nav-item.active {
+  background: var(--bg2);
+  color: var(--text);
+  border-left-color: var(--accent);
+}
+.nav-item.active svg { opacity: 1; }
+.nav-badge {
+  margin-left: auto; font-size: 10px;
+  background: var(--accent); color: #fff;
+  padding: 1px 6px; border-radius: 10px;
+  font-family: var(--mono);
+}
+.sidebar-footer {
+  margin-top: auto;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text3);
+  font-family: var(--mono);
+}
+
+/* ── MAIN ── */
+.main {
+  background: var(--bg);
+  padding: 0;
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+
+/* ── PAGE SECTIONS ── */
+.page { display: none; flex-direction: column; flex: 1; }
+.page.active { display: flex; }
+
+/* ── PAGE HEADER ── */
+.pg-header {
+  padding: 20px 28px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  display: flex; align-items: baseline; gap: 10px;
+}
+.pg-header h1 {
+  font-size: 16px; font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.pg-header p {
+  font-size: 12px; color: var(--text3);
+}
+
+.pg-body { padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; flex: 1; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+}
+.card-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.card-header h3 {
+  font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text2);
+}
+.card-header-right { margin-left: auto; }
+.card-body { padding: 16px; }
+
+/* ── METRIC ROW ── */
+.metric-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  overflow: hidden;
+}
+.metric-cell {
+  padding: 18px 20px;
+  border-right: 1px solid var(--border);
+}
+.metric-cell:last-child { border-right: none; }
+.metric-label { font-size: 11px; color: var(--text3); margin-bottom: 8px; font-family: var(--mono); }
+.metric-val {
+  font-size: 28px; font-weight: 600; letter-spacing: -0.04em;
+  line-height: 1; font-family: var(--mono);
+}
+.metric-sub { font-size: 11px; color: var(--text2); margin-top: 6px; }
+.metric-val.over   { color: var(--red); }
+.metric-val.warn   { color: var(--amber); }
+.metric-val.ok     { color: var(--green); }
+
+/* ── TWO COL ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media(max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ── FORM ── */
+.form-group { margin-bottom: 16px; }
+.form-group:last-child { margin-bottom: 0; }
+label { display: block; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 5px; }
+label em { font-style: normal; color: var(--text3); font-weight: 400; }
+input[type="text"], input[type="email"], input[type="number"], input[type="url"], select {
+  width: 100%; background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r); padding: 8px 10px; font-size: 13px;
+  color: var(--text); font-family: var(--font); outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(192,57,43,0.12);
+}
+input::placeholder { color: var(--text3); }
+.input-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+/* ── TOGGLE ── */
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 0; border-bottom: 1px solid var(--bg2);
+}
+.toggle-row:last-child { border-bottom: none; }
+.toggle-info h4 { font-size: 13px; font-weight: 500; }
+.toggle-info p { font-size: 11px; color: var(--text2); margin-top: 1px; }
+.toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  position: absolute; inset: 0; background: var(--bg3);
+  border-radius: 10px; cursor: pointer; transition: 0.15s;
+  border: 1px solid var(--border);
+}
+.toggle-track::before {
+  content: ''; position: absolute; width: 14px; height: 14px;
+  border-radius: 50%; background: #fff;
+  top: 2px; left: 2px; transition: 0.15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.toggle input:checked + .toggle-track { background: var(--green); border-color: var(--green); }
+.toggle input:checked + .toggle-track::before { transform: translateX(16px); }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 16px; border-radius: var(--r); font-size: 13px;
+  font-weight: 500; cursor: pointer; border: 1px solid transparent;
+  transition: all 0.1s; font-family: var(--font);
+}
+.btn svg { width: 13px; height: 13px; }
+.btn-primary {
+  background: var(--text); color: #fff; border-color: var(--text);
+}
+.btn-primary:hover { background: #333; }
+.btn-ghost {
+  background: var(--surface); color: var(--text2);
+  border-color: var(--border);
+}
+.btn-ghost:hover { background: var(--bg2); color: var(--text); }
+.btn-danger {
+  background: var(--red-bg); color: var(--red);
+  border-color: rgba(185,28,28,0.2);
+}
+.btn-danger:hover { background: #fee2e2; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── THRESHOLD BARS ── */
+.threshold-table { width: 100%; border-collapse: collapse; }
+.threshold-table td {
+  padding: 8px 0;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--bg2);
+  font-size: 12px;
+}
+.threshold-table tr:last-child td { border-bottom: none; }
+.thr-name { color: var(--text2); width: 120px; font-family: var(--mono); font-size: 11px; }
+.thr-track-td { padding: 8px 12px !important; }
+.thr-track { height: 6px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+.thr-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+.thr-badge-td { width: 80px; text-align: right; }
+
+/* ── STATUS BADGES ── */
+.badge {
+  font-size: 11px; padding: 2px 8px; border-radius: 3px;
+  font-weight: 500; font-family: var(--mono);
+  display: inline-block;
+}
+.badge-green  { background: var(--green-bg); color: var(--green); }
+.badge-amber  { background: var(--amber-bg); color: var(--amber); }
+.badge-red    { background: var(--red-bg); color: var(--red); }
+.badge-gray   { background: var(--bg3); color: var(--text3); }
+.badge-blue   { background: var(--blue-bg); color: var(--blue); }
+
+/* ── INFRA TABLE ── */
+.infra-table { width: 100%; border-collapse: collapse; }
+.infra-table th {
+  text-align: left; font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--text3); padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+}
+.infra-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--bg2);
+  font-size: 13px; vertical-align: middle;
+}
+.infra-table tr:last-child td { border-bottom: none; }
+.infra-table tr:hover td { background: var(--bg); }
+.td-name { font-weight: 500; }
+.td-sub { font-size: 11px; color: var(--text3); margin-top: 1px; font-family: var(--mono); }
+
+/* ── CHART ── */
+.chart-wrap { position: relative; width: 100%; height: 180px; }
+.chart-legend { display: flex; gap: 14px; margin-bottom: 10px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); font-family: var(--mono); }
+.legend-swatch { width: 20px; height: 2px; border-radius: 1px; }
+.legend-swatch.dashed { background: repeating-linear-gradient(90deg, var(--red) 0, var(--red) 4px, transparent 4px, transparent 8px); }
+
+/* ── RANGE SLIDER ── */
+.range-row { display: flex; align-items: center; gap: 12px; }
+input[type="range"] {
+  flex: 1; appearance: none; -webkit-appearance: none; background: transparent; height: 4px;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px; background: var(--bg3); border-radius: 2px;
+  border: 1px solid var(--border);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--text); margin-top: -5px; cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 0 3px rgba(26,23,20,0.1);
+}
+.range-val {
+  font-size: 15px; font-weight: 600; min-width: 52px;
+  text-align: right; letter-spacing: -0.02em; font-family: var(--mono);
+}
+
+/* ── CURRENCY TABLE ── */
+.cur-table { width: 100%; border-collapse: collapse; }
+.cur-table tr { border-bottom: 1px solid var(--bg2); }
+.cur-table tr:last-child { border-bottom: none; }
+.cur-table td { padding: 8px 4px; font-size: 13px; }
+.cur-code { color: var(--text2); font-family: var(--mono); font-size: 11px; width: 70px; }
+.cur-flag { margin-right: 6px; }
+.cur-val { text-align: right; font-weight: 600; font-family: var(--mono); letter-spacing: -0.02em; }
+.cur-rate { text-align: right; font-size: 10px; color: var(--text3); font-family: var(--mono); }
+
+/* ── ALERT LOG ── */
+.log-table { width: 100%; border-collapse: collapse; }
+.log-table th {
+  text-align: left; font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--text3); padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+}
+.log-table td {
+  padding: 10px 12px; border-bottom: 1px solid var(--bg2);
+  font-size: 12px; vertical-align: middle;
+}
+.log-table tr:last-child td { border-bottom: none; }
+.log-table tr:hover td { background: var(--bg); }
+.log-time { font-family: var(--mono); font-size: 11px; color: var(--text3); white-space: nowrap; }
+
+/* ── NOTIFICATION PREVIEWS ── */
+.slack-preview {
+  background: #1a1d21; border-radius: var(--r);
+  padding: 12px 14px; font-family: var(--mono); font-size: 12px;
+}
+.sp-header { color: #fff; font-weight: 500; margin-bottom: 6px; }
+.sp-warn { color: #fbbf24; }
+.sp-body { color: #9ca3af; line-height: 1.6; }
+.email-preview {
+  border: 1px solid var(--border); border-radius: var(--r); overflow: hidden;
+}
+.ep-header {
+  background: var(--bg2); padding: 8px 12px;
+  font-size: 11px; color: var(--text2);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+}
+.ep-body {
+  padding: 12px 14px; font-size: 12px; color: var(--text2); line-height: 1.7;
+}
+.ep-body strong { color: var(--text); }
+
+/* ── SETUP STEPS ── */
+.step-list { display: flex; flex-direction: column; gap: 0; }
+.step {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 0; border-bottom: 1px solid var(--bg2);
+}
+.step:last-child { border-bottom: none; }
+.step-dot {
+  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; margin-top: 1px;
+  font-family: var(--mono);
+}
+.step-dot.done    { background: var(--green-bg); color: var(--green); border: 1px solid rgba(26,115,64,0.25); }
+.step-dot.active  { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(138,93,0,0.25); animation: pulse 1.4s infinite; }
+.step-dot.pending { background: var(--bg3); color: var(--text3); border: 1px solid var(--border); }
+.step-dot.error   { background: var(--red-bg); color: var(--red); border: 1px solid rgba(185,28,28,0.25); }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+.step-body h4 { font-size: 13px; font-weight: 500; }
+.step-body p { font-size: 12px; color: var(--text2); margin-top: 1px; }
+.step-cmd {
+  font-family: var(--mono); font-size: 10px; color: var(--text3);
+  background: var(--bg2); padding: 2px 7px; border-radius: 3px;
+  display: inline-block; margin-top: 4px;
+}
+
+/* ── COST TYPES GRID ── */
+.cost-type-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.cost-type-item {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 10px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r); font-size: 12px;
+}
+
+/* ── THRESHOLD CONFIG CARDS ── */
+.thr-config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.thr-config-item {
+  padding: 14px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r); text-align: center;
+}
+.thr-config-pct { font-size: 24px; font-weight: 600; font-family: var(--mono); letter-spacing: -0.03em; }
+.thr-config-type { font-size: 11px; color: var(--text2); margin-top: 4px; }
+.thr-config-desc { font-size: 10px; color: var(--text3); margin-top: 2px; font-family: var(--mono); }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: 20px; right: 20px;
+  background: var(--text); color: #fff;
+  border-radius: var(--r); padding: 10px 16px;
+  font-size: 13px; display: flex; align-items: center; gap: 8px;
+  transform: translateY(70px); opacity: 0;
+  transition: all 0.25s ease; z-index: 999;
+  max-width: 300px; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast .ti { font-size: 14px; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border2); }
+
+@media(max-width: 720px) {
+  .shell { grid-template-columns: 1fr; grid-template-rows: 48px auto 1fr; }
+  .sidebar { display: none; }
+  .metric-row { grid-template-columns: 1fr 1fr; }
+  .pg-body { padding: 16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      aws-cost-alerts
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-status">
+      <span class="status-dot green" id="topbar-dot"></span>
+      <span id="topbar-label">under budget</span>
+    </div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-section">Monitor</div>
+    <button class="nav-item active" onclick="goTo('dashboard', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button class="nav-item" onclick="goTo('alerts', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      Alert log
+      <span class="nav-badge" id="alert-count">1</span>
+    </button>
+    <button class="nav-item" onclick="goTo('notifications', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.84 12.9 19.79 19.79 0 0 1 1.77 4.23 2 2 0 0 1 3.77 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      Notifications
+    </button>
+    <div class="sidebar-section" style="margin-top: 8px;">Config</div>
+    <button class="nav-item" onclick="goTo('setup', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      Configure
+    </button>
+    <button class="nav-item" onclick="goTo('infrastructure', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Infrastructure
+    </button>
+    <div class="sidebar-footer">
+      v1.0.0 · us-east-1
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <section class="page active" id="pg-dashboard">
+      <div class="pg-header">
+        <h1>Dashboard</h1>
+        <p>AWS spend this month</p>
+      </div>
+      <div class="pg-body">
+
+        <div class="metric-row" id="metrics-grid">
+          <div class="metric-cell">
+            <div class="metric-label">monthly budget</div>
+            <div class="metric-val" id="m-budget">$500</div>
+            <div class="metric-sub">MonthlyAWSBudget</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-label">current spend</div>
+            <div class="metric-val" id="m-spend">$312</div>
+            <div class="metric-sub" id="m-pct">62% of budget</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-label">forecasted total</div>
+            <div class="metric-val" id="m-forecast">$478</div>
+            <div class="metric-sub">by month-end</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-label">remaining</div>
+            <div class="metric-val ok" id="m-remaining">$188</div>
+            <div class="metric-sub" id="m-days">12 days left</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>Monthly spend trend</h3></div>
+          <div class="card-body">
+            <div class="chart-legend">
+              <span class="legend-item">
+                <span class="legend-swatch" style="background:#c0392b;"></span>actual
+              </span>
+              <span class="legend-item">
+                <span class="legend-swatch" style="background:#8a5d00; opacity:0.6;"></span>forecast
+              </span>
+              <span class="legend-item">
+                <span class="legend-swatch dashed"></span>budget limit
+              </span>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="spend-chart" role="img" aria-label="Monthly AWS spend chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header"><h3>Alert thresholds</h3></div>
+            <div class="card-body">
+              <table class="threshold-table" id="thresholds-wrap"></table>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <h3>Budget simulator</h3>
+            </div>
+            <div class="card-body">
+              <p style="font-size:12px; color:var(--text3); margin-bottom:14px;">Adjust budget to see how currencies and alerts change.</p>
+              <div class="range-row" style="margin-bottom:16px;">
+                <input type="range" min="50" max="2000" step="25" value="500" id="sim-slider" />
+                <span class="range-val" id="sim-val">$500</span>
+              </div>
+              <table class="cur-table" id="currency-list"></table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ALERT LOG -->
+    <section class="page" id="pg-alerts">
+      <div class="pg-header">
+        <h1>Alert log</h1>
+        <p>Budget threshold events</p>
+      </div>
+      <div class="pg-body">
+        <div class="card">
+          <div class="card-header"><h3>Recent events</h3></div>
+          <table class="log-table" id="alert-log">
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Detail</th>
+                <th style="text-align:right;">Time</th>
+              </tr>
+            </thead>
+            <tbody id="alert-log-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- NOTIFICATIONS -->
+    <section class="page" id="pg-notifications">
+      <div class="pg-header">
+        <h1>Notifications</h1>
+        <p>Channel settings and message previews</p>
+      </div>
+      <div class="pg-body">
+        <div class="card">
+          <div class="card-header"><h3>Channels</h3></div>
+          <div class="card-body">
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <h4>Email (SNS)</h4>
+                <p>Delivered via AWS SNS email subscription</p>
+              </div>
+              <label class="toggle"><input type="checkbox" checked id="tog-email"/><span class="toggle-track"></span></label>
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <h4>Slack (Lambda webhook)</h4>
+                <p>Forwarded to Slack channel via Lambda</p>
+              </div>
+              <label class="toggle"><input type="checkbox" checked id="tog-slack"/><span class="toggle-track"></span></label>
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <h4>Forecasted spend alerts</h4>
+                <p>Alert when AWS predicts end-of-month will exceed budget</p>
+              </div>
+              <label class="toggle"><input type="checkbox" checked /></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header"><h3>Slack preview</h3></div>
+            <div class="card-body">
+              <div class="slack-preview">
+                <div class="sp-header"><span class="sp-warn">⚠</span> AWS Budget Alert — MonthlyAWSBudget</div>
+                <div class="sp-body" id="slack-body">AWS Budget Alert: Your budget MonthlyAWSBudget has exceeded 50% of its monthly limit. Budget amount: $500.00. Actual spend: $312.00. Time of notification: May 25, 2026 08:00 UTC.</div>
+              </div>
+              <p style="font-size:11px; color:var(--text3); margin-top:8px; font-family:var(--mono);">Lambda → Slack webhook</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Email preview</h3></div>
+            <div class="card-body">
+              <div class="email-preview">
+                <div class="ep-header">
+                  <div>From: aws-budget-alert@amazon.com</div>
+                  <div>Subject: AWS Budget Notification — MonthlyAWSBudget</div>
+                </div>
+                <div class="ep-body">
+                  <strong>AWS Budget Alert</strong><br><br>
+                  Your AWS Budget <strong>MonthlyAWSBudget</strong> has exceeded <strong id="email-threshold">50%</strong> of its monthly cost limit.<br><br>
+                  Budget amount: <strong id="email-budget">$500.00</strong><br>
+                  Current spend: <strong id="email-spend">$312.00</strong><br><br>
+                  Review your AWS Console to see which services are contributing to this spend.
+                </div>
+              </div>
+              <p style="font-size:11px; color:var(--text3); margin-top:8px; font-family:var(--mono);">SNS email subscription</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONFIGURE -->
+    <section class="page" id="pg-setup">
+      <div class="pg-header">
+        <h1>Configure</h1>
+        <p>Budget and notification settings</p>
+      </div>
+      <div class="pg-body">
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header"><h3>Budget</h3></div>
+            <div class="card-body">
+              <div class="form-group">
+                <label>Monthly limit <em>(USD)</em></label>
+                <input type="number" id="cfg-budget" value="500" min="1" placeholder="500" />
+              </div>
+              <div class="form-group">
+                <label>Budget name <em>(optional)</em></label>
+                <input type="text" id="cfg-budgetname" value="MonthlyAWSBudget" />
+              </div>
+              <div class="form-group">
+                <label>AWS region</label>
+                <select id="cfg-region">
+                  <option value="us-east-1" selected>us-east-1 — N. Virginia</option>
+                  <option value="us-west-1">us-west-1 — N. California</option>
+                  <option value="us-west-2">us-west-2 — Oregon</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Currency display</label>
+                <select id="cfg-currency">
+                  <option value="USD">USD — US Dollar</option>
+                  <option value="ZAR">ZAR — South African Rand</option>
+                  <option value="EUR">EUR — Euro</option>
+                  <option value="GBP">GBP — British Pound</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Destinations</h3></div>
+            <div class="card-body">
+              <div class="form-group">
+                <label>Alert email</label>
+                <input type="email" id="cfg-email" placeholder="alerts@yourcompany.com" />
+                <div class="input-hint">AWS SNS will send a confirmation email to this address.</div>
+              </div>
+              <div class="form-group">
+                <label>Slack webhook <em>(optional)</em></label>
+                <input type="url" id="cfg-slack" placeholder="https://hooks.slack.com/services/..." />
+                <div class="input-hint">Paste your Slack incoming webhook URL.</div>
+              </div>
+              <div class="form-group">
+                <label>AWS profile <em>(optional)</em></label>
+                <input type="text" id="cfg-profile" placeholder="default" />
+                <div class="input-hint">Leave blank to use default credentials.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>Alert thresholds</h3></div>
+          <div class="card-body">
+            <p style="font-size:12px; color:var(--text3); margin-bottom:14px;">These thresholds are fixed and set automatically during setup.</p>
+            <div class="thr-config-grid">
+              <div class="thr-config-item">
+                <div class="thr-config-pct" style="color:var(--green);">50%</div>
+                <div class="thr-config-type">actual spend</div>
+                <div class="thr-config-desc">early warning</div>
+              </div>
+              <div class="thr-config-item">
+                <div class="thr-config-pct" style="color:var(--amber);">80%</div>
+                <div class="thr-config-type">actual spend</div>
+                <div class="thr-config-desc">approaching limit</div>
+              </div>
+              <div class="thr-config-item">
+                <div class="thr-config-pct" style="color:var(--red);">100%</div>
+                <div class="thr-config-type">actual spend</div>
+                <div class="thr-config-desc">budget exceeded</div>
+              </div>
+              <div class="thr-config-item">
+                <div class="thr-config-pct" style="color:var(--red);">100%</div>
+                <div class="thr-config-type">forecasted spend</div>
+                <div class="thr-config-desc">predicted to exceed</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>Run setup</h3></div>
+          <div class="card-body">
+            <p style="font-size:12px; color:var(--text2); margin-bottom:14px;">
+              Creates your AWS budget, SNS topic, email subscription, and (if a Slack webhook is provided) a Lambda forwarder.
+            </p>
+            <div class="btn-row">
+              <button class="btn btn-ghost" onclick="runDryRun()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                Dry run
+              </button>
+              <button class="btn btn-primary" onclick="runSetup()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5 12 12 19 19 12"/><polyline points="5 5 12 12 19 5"/></svg>
+                Run setup
+              </button>
+            </div>
+            <div id="setup-steps" style="margin-top:16px; display:none;">
+              <div class="step-list" id="step-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INFRASTRUCTURE -->
+    <section class="page" id="pg-infrastructure">
+      <div class="pg-header">
+        <h1>Infrastructure</h1>
+        <p>AWS resources provisioned by this tool</p>
+      </div>
+      <div class="pg-body">
+        <div class="card">
+          <div class="card-header"><h3>Resources</h3></div>
+          <table class="infra-table">
+            <thead>
+              <tr>
+                <th>Resource</th>
+                <th>Identifier</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><div class="td-name">SNS Topic</div></td>
+                <td><div class="td-sub">aws-cost-alert-topic · us-east-1</div></td>
+                <td><span class="badge badge-green">active</span></td>
+              </tr>
+              <tr>
+                <td><div class="td-name">Email subscription</div></td>
+                <td><div class="td-sub" id="infra-email">pending confirmation</div></td>
+                <td><span class="badge badge-amber">confirm inbox</span></td>
+              </tr>
+              <tr>
+                <td><div class="td-name">Lambda function</div></td>
+                <td><div class="td-sub">aws-cost-alert-slack-forwarder · python3.12 · 15s</div></td>
+                <td><span class="badge badge-green">active</span></td>
+              </tr>
+              <tr>
+                <td><div class="td-name">IAM role</div></td>
+                <td><div class="td-sub">aws-cost-alert-lambda-role · AWSLambdaBasicExecutionRole</div></td>
+                <td><span class="badge badge-green">active</span></td>
+              </tr>
+              <tr>
+                <td><div class="td-name">AWS Budget</div></td>
+                <td><div class="td-sub" id="infra-budget-name">MonthlyAWSBudget · COST · MONTHLY · 4 thresholds</div></td>
+                <td><span class="badge badge-green">active</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>Cost types</h3></div>
+          <div class="card-body">
+            <div class="cost-type-grid" id="cost-types"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>Teardown</h3></div>
+          <div class="card-body">
+            <p style="font-size:12px; color:var(--text2); margin-bottom:14px;">Deletes all AWS resources created by this tool. This cannot be undone.</p>
+            <button class="btn btn-danger" onclick="showToast('⚠️', 'Teardown would delete: budget, SNS topic, Lambda, IAM role.')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              Delete all resources
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- TOAST -->
+<div id="toast"><span class="ti" id="toast-icon">✅</span><span id="toast-msg"></span></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ── STATE ──
+let budget = 500;
+const spend = 312;
+
+const CURRENCIES = [
+  { code: 'USD', sym: '$', rate: 1,     flag: '🇺🇸' },
+  { code: 'ZAR', sym: 'R', rate: 18.50, flag: '🇿🇦' },
+  { code: 'EUR', sym: '€', rate: 0.92,  flag: '🇪🇺' },
+  { code: 'GBP', sym: '£', rate: 0.79,  flag: '🇬🇧' },
+];
+
+const THRESHOLDS = [
+  { pct: 50,  label: '50% actual',      color: '#1a7340' },
+  { pct: 80,  label: '80% actual',      color: '#8a5d00' },
+  { pct: 100, label: '100% actual',     color: '#b91c1c' },
+  { pct: 100, label: '100% forecasted', color: '#6d28d9' },
+];
+
+const COST_TYPES = [
+  { name: 'Tax',           on: true },
+  { name: 'Subscriptions', on: true },
+  { name: 'Upfront',       on: true },
+  { name: 'Recurring',     on: true },
+  { name: 'Support',       on: true },
+  { name: 'Discount',      on: true },
+  { name: 'Refunds',       on: false },
+  { name: 'Credits',       on: false },
+  { name: 'Blended rates', on: false },
+  { name: 'Amortized',     on: false },
+];
+
+// ── NAV ──
+function goTo(page, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('pg-' + page).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+// ── THRESHOLDS ──
+function renderThresholds() {
+  const pct = (spend / budget) * 100;
+  document.getElementById('thresholds-wrap').innerHTML = THRESHOLDS.map(t => {
+    const fill = Math.min(pct, t.pct);
+    const w = Math.round((fill / t.pct) * 100);
+    const fired = pct >= t.pct;
+    const near  = !fired && pct >= t.pct * 0.9;
+    const badgeCls = fired ? 'badge-red' : near ? 'badge-amber' : 'badge-green';
+    const badgeTxt = fired ? 'triggered' : near ? 'near' : 'clear';
+    return `<tr>
+      <td class="thr-name">${t.label}</td>
+      <td class="thr-track-td"><div class="thr-track"><div class="thr-fill" style="width:${w}%;background:${t.color};"></div></div></td>
+      <td class="thr-badge-td"><span class="badge ${badgeCls}">${badgeTxt}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── CURRENCIES ──
+function renderCurrencies() {
+  document.getElementById('currency-list').innerHTML = CURRENCIES.map(c => {
+    const v = (budget * c.rate).toLocaleString(undefined, { maximumFractionDigits: 0 });
+    const rate = c.code === 'USD' ? 'base' : `1 USD = ${c.rate} ${c.code}`;
+    return `<tr>
+      <td class="cur-code"><span class="cur-flag">${c.flag}</span>${c.code}</td>
+      <td class="cur-val">${c.sym}${v}</td>
+      <td class="cur-rate">${rate}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── METRICS ──
+function renderMetrics() {
+  const rem = budget - spend;
+  const pctNum = Math.round((spend / budget) * 100);
+  const fc = Math.round(spend * 1.53);
+  document.getElementById('m-budget').textContent    = '$' + budget.toLocaleString();
+  document.getElementById('m-spend').textContent     = '$' + spend.toLocaleString();
+  document.getElementById('m-pct').textContent       = pctNum + '% of budget';
+  document.getElementById('m-forecast').textContent  = '$' + fc.toLocaleString();
+  const remEl = document.getElementById('m-remaining');
+  remEl.textContent = '$' + Math.max(0, rem).toLocaleString();
+  remEl.className = 'metric-val ' + (rem < 0 ? 'over' : rem / budget < 0.2 ? 'warn' : 'ok');
+
+  const dot = document.getElementById('topbar-dot');
+  const lbl = document.getElementById('topbar-label');
+  dot.className = 'status-dot';
+  if (pctNum >= 100)     { dot.classList.add('red');   lbl.textContent = 'over budget'; }
+  else if (pctNum >= 80) { dot.classList.add('amber');  lbl.textContent = 'high spend'; }
+  else                   { dot.classList.add('green');  lbl.textContent = 'under budget'; }
+
+  document.getElementById('email-budget').textContent = '$' + budget.toFixed(2);
+  document.getElementById('email-spend').textContent  = '$' + spend.toFixed(2);
+}
+
+// ── SLIDER ──
+document.getElementById('sim-slider').addEventListener('input', function() {
+  budget = parseInt(this.value);
+  document.getElementById('sim-val').textContent = '$' + budget.toLocaleString();
+  renderThresholds(); renderCurrencies(); renderMetrics(); updateChart();
+});
+
+// ── CHART ──
+const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const now = new Date();
+const cm = now.getMonth();
+const actualData = [210,245,290,330,280,310,298,315,342,360,305,312].slice(0, cm + 1).concat(new Array(11 - cm).fill(null));
+const forecastData = new Array(cm).fill(null).concat([312,340,370,410,450,478,490].slice(0, 12 - cm));
+
+let chart;
+function buildChart() {
+  const ctx = document.getElementById('spend-chart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [
+        {
+          label: 'Actual',
+          data: actualData,
+          borderColor: '#c0392b',
+          backgroundColor: 'rgba(192,57,43,0.06)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+          pointBackgroundColor: '#c0392b',
+          borderWidth: 1.5,
+        },
+        {
+          label: 'Forecast',
+          data: forecastData,
+          borderColor: '#8a5d00',
+          backgroundColor: 'transparent',
+          fill: false,
+          tension: 0.3,
+          pointRadius: 2,
+          pointBackgroundColor: '#8a5d00',
+          borderDash: [5, 3],
+          borderWidth: 1.5,
+        },
+        {
+          label: 'Budget',
+          data: new Array(12).fill(budget),
+          borderColor: '#b91c1c',
+          backgroundColor: 'transparent',
+          fill: false,
+          pointRadius: 0,
+          borderDash: [3, 3],
+          borderWidth: 1,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false },
+          ticks: { color: '#8c8278', font: { size: 10, family: "'IBM Plex Mono'" }, maxRotation: 0 }
+        },
+        y: {
+          grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false },
+          ticks: { color: '#8c8278', font: { size: 10, family: "'IBM Plex Mono'" }, callback: v => '$' + v },
+          min: 0
+        }
+      }
+    }
+  });
+}
+
+function updateChart() {
+  if (!chart) return;
+  chart.data.datasets[2].data = new Array(12).fill(budget);
+  chart.update();
+}
+
+// ── ALERT LOG ──
+function renderAlertLog() {
+  const alerts = [
+    { badge: 'badge-amber', type: '50% threshold', detail: 'Actual spend reached 50% of $500 budget (current: $312)', time: 'today 08:14' },
+    { badge: 'badge-green', type: 'setup complete', detail: 'Budget, SNS topic, Lambda forwarder created successfully', time: 'may 20 09:02' },
+  ];
+  document.getElementById('alert-log-body').innerHTML = alerts.map(a =>
+    `<tr>
+      <td><span class="badge ${a.badge}">${a.type}</span></td>
+      <td style="font-size:12px; color:var(--text2);">${a.detail}</td>
+      <td class="log-time">${a.time}</td>
+    </tr>`
+  ).join('');
+}
+
+// ── COST TYPES ──
+function renderCostTypes() {
+  document.getElementById('cost-types').innerHTML = COST_TYPES.map(c =>
+    `<div class="cost-type-item">
+      <span style="color:${c.on ? 'var(--green)' : 'var(--text3)'}; font-family:var(--mono); font-size:11px;">${c.on ? '✓' : '✗'}</span>
+      <span style="color:${c.on ? 'var(--text)' : 'var(--text3)'};">${c.name}</span>
+    </div>`
+  ).join('');
+}
+
+// ── TOAST ──
+let toastTimer;
+function showToast(icon, msg) {
+  document.getElementById('toast-icon').textContent = icon;
+  document.getElementById('toast-msg').textContent = msg;
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── DRY RUN ──
+function runDryRun() {
+  const email = document.getElementById('cfg-email').value.trim();
+  const b = document.getElementById('cfg-budget').value;
+  const name = document.getElementById('cfg-budgetname').value;
+  if (!email) { showToast('⚠️', 'Enter your email address first.'); return; }
+  const steps = document.getElementById('setup-steps');
+  steps.style.display = 'block';
+  const hasSlack = !!document.getElementById('cfg-slack').value;
+  document.getElementById('step-list').innerHTML = [
+    { title: 'Resolve AWS account identity', desc: 'sts:GetCallerIdentity', cmd: 'preview only — no changes' },
+    { title: 'Create SNS topic', desc: `aws-cost-alert-topic → subscribe ${email}`, cmd: 'preview only — no changes' },
+    ...(hasSlack ? [{ title: 'Deploy Slack Lambda', desc: 'IAM role → zip → Lambda → SNS subscription', cmd: 'preview only — no changes' }] : []),
+    { title: 'Create AWS Budget', desc: `${name} · $${b}/month · 4 alert thresholds`, cmd: 'preview only — no changes' },
+  ].map(s => `<div class="step">
+    <div class="step-dot done">✓</div>
+    <div class="step-body"><h4>${s.title}</h4><p>${s.desc}</p><span class="step-cmd">${s.cmd}</span></div>
+  </div>`).join('');
+  showToast('👁', 'Dry run complete — no resources created.');
+}
+
+// ── SETUP ──
+function runSetup() {
+  const email = document.getElementById('cfg-email').value.trim();
+  const b = document.getElementById('cfg-budget').value;
+  const name = document.getElementById('cfg-budgetname').value;
+  const slack = document.getElementById('cfg-slack').value.trim();
+  if (!email) { showToast('⚠️', 'Please enter your email address.'); return; }
+  if (!b || parseFloat(b) <= 0) { showToast('⚠️', 'Please enter a valid budget amount.'); return; }
+  const hasSlack = !!slack;
+  const stepDefs = [
+    { title: 'Connecting to AWS', desc: 'Verifying credentials and account identity', cmd: 'sts:GetCallerIdentity', delay: 0 },
+    { title: 'Creating SNS topic', desc: `Subscribing ${email} to aws-cost-alert-topic`, cmd: 'sns:CreateTopic → sns:Subscribe', delay: 900 },
+    ...(hasSlack ? [{ title: 'Deploying Slack Lambda', desc: 'Creating IAM role, packaging and deploying Lambda', cmd: 'iam:CreateRole → lambda:CreateFunction', delay: 1800 }] : []),
+    { title: 'Creating AWS Budget', desc: `${name} · $${b}/month · 4 thresholds`, cmd: 'budgets:CreateBudget', delay: hasSlack ? 2700 : 1800 },
+  ];
+  const steps = document.getElementById('setup-steps');
+  steps.style.display = 'block';
+  function renderSteps(doneCount) {
+    document.getElementById('step-list').innerHTML = stepDefs.map((s, i) => {
+      let cls = 'pending', icon = String(i + 1);
+      if (i < doneCount) { cls = 'done'; icon = '✓'; }
+      else if (i === doneCount) { cls = 'active'; icon = '…'; }
+      return `<div class="step">
+        <div class="step-dot ${cls}">${icon}</div>
+        <div class="step-body"><h4>${s.title}</h4><p>${s.desc}</p><span class="step-cmd">${s.cmd}</span></div>
+      </div>`;
+    }).join('');
+  }
+  renderSteps(0);
+  stepDefs.forEach((_, i) => {
+    setTimeout(() => {
+      renderSteps(i + 1);
+      if (i === stepDefs.length - 1) {
+        budget = parseFloat(b);
+        document.getElementById('sim-slider').value = budget;
+        document.getElementById('sim-val').textContent = '$' + budget.toLocaleString();
+        document.getElementById('infra-budget-name').textContent = `${name} · COST · MONTHLY · 4 thresholds`;
+        document.getElementById('infra-email').textContent = email;
+        renderThresholds(); renderCurrencies(); renderMetrics(); updateChart();
+        showToast('✅', 'Setup complete! Check your inbox to confirm your email subscription.');
+        document.getElementById('alert-count').textContent = '2';
+      }
+    }, (i + 1) * 900);
+  });
+}
+
+// ── INIT ──
+renderThresholds();
+renderCurrencies();
+renderMetrics();
+renderAlertLog();
+renderCostTypes();
+buildChart();
+</script>
+</body>
+</html>
